@@ -428,12 +428,15 @@ DocType,Invigilation Roster,,Dean Academics,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Invigilation Roster,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Lab Incident,,IQAC Coordinator,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Lab Incident,,Lab In-charge,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Lab Incident,,Principal,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0
 DocType,Lab Incident,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0
 DocType,Lab Safety Inspection,,IQAC Coordinator,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,1,0
 DocType,Lab Safety Inspection,,Lab In-charge,0,1,1,1,0,1,1,0,1,0,0,1,1,0,0,0,1,0
+DocType,Lab Safety Inspection,,Principal,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0
 DocType,Lab Safety Inspection,,System Manager,0,1,1,1,1,1,1,1,1,0,0,1,1,0,1,0,1,0
 DocType,Laboratory,,IQAC Coordinator,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Laboratory,,Lab In-charge,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Laboratory,,Principal,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0
 DocType,Laboratory,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0
 DocType,Laboratory Settings,,System Manager,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 DocType,Late Joining Request,,Admission Officer,0,1,1,1,0,1,1,1,1,0,0,0,1,0,0,0,1,0

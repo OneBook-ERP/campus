@@ -54,6 +54,9 @@ Teaching rights on Education doctypes (Instructor select on Course Schedule, HOD
 Attendance) are added once, on the first `migrate` that knows them, as Custom DocPerm rows. After that the kit never
 touches them: a right the college removes or adds in the Role Permission Manager stays as the college left it. Note
 that once a doctype has Custom DocPerm rows, later Education upgrades to its standard permissions do not reach the site.
+The same holds for the Admission Officer's rules (Student Applicant, Program Enrollment, Program, Academic Year, Student Category, Student Admission, Customer and the like; all without export) and for the Student role's Sales Invoice rule, which is narrowed to read and print.
+
+Lab In-charge reads Asset and Asset Maintenance only for assets located in a laboratory of their own college (permission hooks in `campus.labs.access`); a user who also holds another role that reads Asset (Accounts User, Stock User and so on) keeps that role's wider read.
 
 Locked records are never edited on a re-run: an Effective regulation and its rules, and a submitted Fee Structure (a
 difference is reported in the notes; amend it by cancelling and re-submitting by hand).

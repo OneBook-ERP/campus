@@ -1,5 +1,6 @@
 """M12-01 / M12-05 labs and equipment: lab masters, equipment by Asset Location, calibration due and notice, inspection, incident."""
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import frappe
@@ -18,6 +19,7 @@ from campus.tests.utils import CampusTestCase
 
 COLLEGE, OTHER = "Lab Test College", "Lab Test Other College"
 READER = "lab-reader@example.com"
+OTHER_READER = "lab-other-reader@example.com"
 
 
 class TestLabRules(UnitTestCase):
@@ -51,6 +53,7 @@ class LabCase(CampusTestCase):
 		make_company(COLLEGE, "LTC")
 		make_company(OTHER, "LTO")
 		make_user(READER, [COLLEGE])
+		make_user(OTHER_READER, [OTHER])
 		frappe.get_doc("User", READER).add_roles("Lab In-charge")
 		if not frappe.db.exists("Gender", "Male"):
 			frappe.get_doc({"doctype": "Gender", "gender": "Male"}).insert()
@@ -112,8 +115,9 @@ class LabCase(CampusTestCase):
 			frappe.db.set_value("Asset", asset.name, "status", status)
 		return asset
 
-	def make_maintenance(self, asset, tasks):
-		"""Asset Maintenance with `tasks` = [(name, type, next_due_in_days)]."""
+	def make_maintenance(self, asset, tasks, assign_to=READER):
+		"""Asset Maintenance with `tasks` = [(name, type, next_due_in_days)], each assigned to `assign_to` (an
+		assignment shares the record with that user)."""
 		team = self.make_team()
 		doc = frappe.get_doc(
 			{
@@ -121,7 +125,7 @@ class LabCase(CampusTestCase):
 				"asset_maintenance_tasks": [
 					{
 						"maintenance_task": name, "maintenance_type": kind, "maintenance_status": "Planned",
-						"start_date": add_days(today(), -300), "periodicity": "Yearly", "assign_to": READER,
+						"start_date": add_days(today(), -300), "periodicity": "Yearly", "assign_to": assign_to,
 						"next_due_date": add_days(today(), due_in),
 					}
 					for name, kind, due_in in tasks
@@ -265,7 +269,7 @@ class TestReportsAreCompanyScoped(LabCase):
 		other_lab = self.make_lab("Other Lab", company=OTHER, in_charge=self.make_employee("OtherInCharge", OTHER))
 		mine, theirs = self.make_asset(self.lab), self.make_asset(other_lab, company=OTHER)
 		ours = self.make_maintenance(mine, [("Cal", "Calibration", 5)])
-		self.make_maintenance(theirs, [("Cal", "Calibration", 5)])
+		self.make_maintenance(theirs, [("Cal", "Calibration", 5)], assign_to=OTHER_READER)  # not shared with READER
 		frappe.set_user(READER)
 		assets, maintenance = frappe.get_list("Asset", pluck="name"), frappe.get_list("Asset Maintenance", pluck="name")
 		self.assertIn(mine.name, assets)
@@ -273,6 +277,44 @@ class TestReportsAreCompanyScoped(LabCase):
 		self.assertIn(ours.name, maintenance)
 		self.assertEqual(set(frappe.get_all("Asset Maintenance", {"name": ["in", maintenance]}, pluck="company")), {COLLEGE})
 		self.assertFalse(frappe.has_permission("Asset", "write", mine.name))
+
+	def test_the_in_charge_reads_lab_equipment_not_the_colleges_other_assets(self):
+		"""I4: an asset outside every laboratory (furniture, a vehicle) and its maintenance stay shut to the Lab In-charge."""
+		location = frappe.get_doc({"doctype": "Location", "location_name": f"Admin Block {frappe.generate_hash(length=5)}"}).insert()
+		elsewhere = self.make_asset(SimpleNamespace(asset_location=location.name))
+		equipment = self.make_asset(self.lab)
+		elsewhere_plan = self.make_maintenance(elsewhere, [("Cal", "Calibration", 5)], assign_to=OTHER_READER)
+		equipment_plan = self.make_maintenance(equipment, [("Cal", "Calibration", 5)])
+		frappe.set_user(READER)
+		self.assertEqual({a for a in frappe.get_list("Asset", pluck="name")} & {elsewhere.name, equipment.name}, {equipment.name})
+		counted = frappe.get_list("Asset", filters={"name": ["in", [elsewhere.name, equipment.name]]}, pluck="name")
+		self.assertEqual(counted, [equipment.name])
+		self.assertTrue(frappe.has_permission("Asset", "read", equipment.name))
+		self.assertFalse(frappe.has_permission("Asset", "read", elsewhere.name))
+		plans = frappe.get_list("Asset Maintenance", pluck="name")
+		self.assertIn(equipment_plan.name, plans)
+		self.assertNotIn(elsewhere_plan.name, plans)
+		self.assertFalse(frappe.has_permission("Asset Maintenance", "read", elsewhere_plan.name))
+
+	def test_a_user_with_another_asset_role_is_not_limited_to_the_labs(self):
+		location = frappe.get_doc({"doctype": "Location", "location_name": f"Store {frappe.generate_hash(length=5)}"}).insert()
+		elsewhere = self.make_asset(SimpleNamespace(asset_location=location.name))
+		frappe.get_doc("User", READER).add_roles("Accounts User")
+		frappe.set_user(READER)
+		self.assertIn(elsewhere.name, frappe.get_list("Asset", pluck="name"))
+
+	def test_the_principal_reads_the_labs_of_their_own_college_only(self):
+		"""M7: Laboratory, Lab Incident and Lab Safety Inspection are scoped by the Principal's company User Permission."""
+		principal, other_principal = "lab-principal@example.com", "lab-other-principal@example.com"
+		for email, company in ((principal, COLLEGE), (other_principal, OTHER)):
+			make_user(email, [company])
+			frappe.get_doc("User", email).add_roles("Principal")
+		frappe.set_user(principal)
+		self.assertIn(self.lab.name, frappe.get_list("Laboratory", pluck="name"))
+		self.assertFalse(frappe.has_permission("Laboratory", "write", self.lab.name))
+		frappe.set_user(other_principal)
+		self.assertEqual(frappe.get_list("Laboratory", pluck="name"), [])
+		self.assertFalse(frappe.has_permission("Laboratory", "read", self.lab.name))
 
 	def test_the_due_report_defaults_to_the_notice_window(self):
 		self.make_maintenance(self.make_asset(self.lab), [("Soon", "Calibration", 15), ("Far", "Calibration", 40)])

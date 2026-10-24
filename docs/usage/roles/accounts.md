@@ -13,6 +13,6 @@
 4. **Concession or refund:** Fee Concession, Fee Refund (approval needed).
 5. **Scholarship:** Scholarship Application waiting for sanction.
 6. **Fines and no-dues:** Fine Applied, No Dues Clearance.
-7. **Reports:** Student Fee Collection, Program wise Fee Collection, Student Fee Ledger, Concession Register.
+7. **Reports:** Student Fee Ledger (one student, your colleges only), Concession Register. Education's Student Fee Collection report is not company-scoped, so it stays with Academics User and is not opened to Accounts.
 8. **Pay examiners and external members:** Fees and Finance > Payables > Examiner Remuneration Claims, Honorarium Claims (submitted claims).
 9. **Admission refunds:** Fees and Finance > Refunds & Clearance > Admission Cancellations (submitted cancellations and their credit notes).

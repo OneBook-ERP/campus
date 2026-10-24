@@ -29,6 +29,7 @@ OC, BC = "AF OC", "AF BC"
 OFFICER, PLAIN = "admit-officer@example.com", "admit-plain@example.com"
 OTHER_COLLEGE, OTHER_OFFICER = "Admit Flow Other College", "admit-other@example.com"
 OVERRIDE_OFFICER = "admit-override@example.com"
+PURE_OFFICER = "admit-pure@example.com"  # the pilot kit officer: Admission Officer and no other role
 TUITION_FEE, EXAM_FEE, BC_TUITION = 50000, 2000, 30000
 SERIAL = [0]
 
@@ -219,6 +220,21 @@ class AdmitTestCase(CampusTestCase):
 			frappe.set_user("Administrator")
 
 
+	def advance(self, student, amount):
+		"""Pre-joining money: a Payment Entry (Receive) against the student's customer, with no invoice to settle."""
+		ensure_customer_party_type()  # advances are found through its account type
+		receivable = self.structure.receivable_account
+		payment = frappe.get_doc(
+			{
+				"doctype": "Payment Entry", "payment_type": "Receive", "company": COLLEGE, "posting_date": today(),
+				"party_type": "Customer", "party": frappe.db.get_value("Student", student, "customer"),
+				"paid_from": receivable, "paid_to": self.accounts["bank"], "paid_amount": amount, "received_amount": amount,
+				"reference_no": "ADV-UTR", "reference_date": today(),
+			}
+		)  # fmt: skip
+		return payment.insert().submit().name
+
+
 class TestAdmit(AdmitTestCase):
 	"""M04-09: the admission approval makes an admitted Student and nothing billable, no enrollment and no ID."""
 
@@ -407,20 +423,6 @@ class TestJoining(AdmitTestCase):
 		self.assertEqual(flt(invoice.outstanding_amount), TUITION_FEE + EXAM_FEE - 10000)
 		self.assertEqual(flt(frappe.db.get_value("Payment Entry", advance, "unallocated_amount")), 0)
 		self.assertEqual(paid_by_student(invoice.name), 10000)  # counted as paid, e.g. by a cancellation refund
-
-	def advance(self, student, amount):
-		"""Pre-joining money: a Payment Entry (Receive) against the student's customer, with no invoice to settle."""
-		ensure_customer_party_type()  # advances are found through its account type
-		receivable = self.structure.receivable_account
-		payment = frappe.get_doc(
-			{
-				"doctype": "Payment Entry", "payment_type": "Receive", "company": COLLEGE, "posting_date": today(),
-				"party_type": "Customer", "party": frappe.db.get_value("Student", student, "customer"),
-				"paid_from": receivable, "paid_to": self.accounts["bank"], "paid_amount": amount, "received_amount": amount,
-				"reference_no": "ADV-UTR", "reference_date": today(),
-			}
-		)  # fmt: skip
-		return payment.insert().submit().name
 
 	def test_only_officers_join_and_only_an_admitted_applicant(self):
 		applicant, student = self.admitted()
@@ -912,3 +914,66 @@ class TestAqarCounts(CampusTestCase):
 		self.assertEqual({v: n for (g, v), n in table.items() if g == "Category"}, dict(by_category))
 		for grouping in ("Quota", "Category", "Gender", "State"):
 			self.assertEqual(sum(n for (g, _v), n in table.items() if g == grouping), total, grouping)
+
+
+class TestOfficerWithoutInvoiceRights(AdmitTestCase):
+	"""I3: the pilot kit's Admission Officer holds no other role (no Academics User, Accounts or System Manager);
+	Confirm Joining and Admission Cancellation run with an advance and a refund. Its Sales Invoice / Payment Entry rule is
+	read only (ERPNext's validation reads them as the session user); it cannot write, create or export them."""
+
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		make_user(PURE_OFFICER, [COLLEGE])
+		user = frappe.get_doc("User", PURE_OFFICER)
+		user.remove_roles("Academics User")
+		user.add_roles("Admission Officer")
+
+	def test_the_officer_holds_only_its_own_role_and_reads_invoices_without_changing_them(self):
+		roles = set(frappe.get_roles(PURE_OFFICER)) - {"All", "Desk User", "Guest"}
+		self.assertEqual(roles, {"Admission Officer"})
+		for doctype in ("Sales Invoice", "Payment Entry"):
+			self.assertTrue(frappe.has_permission(doctype, "read", user=PURE_OFFICER), doctype)
+			for ptype in ("write", "create", "submit", "cancel", "delete", "print", "email"):
+				self.assertFalse(frappe.has_permission(doctype, ptype, user=PURE_OFFICER), f"{doctype} {ptype}")
+
+	def test_confirm_joining_allocates_a_pre_joining_advance(self):
+		applicant = self.applicant()
+		student = self.admit_as_officer(applicant, PURE_OFFICER)["student"]
+		advance = self.advance(student, 10000)
+		result = self.join_as_officer(applicant, PURE_OFFICER)
+		invoice = frappe.get_doc("Sales Invoice", result["invoice"])
+		self.assertEqual([(r.reference_name, flt(r.allocated_amount)) for r in invoice.advances], [(advance, 10000)])
+
+	def test_a_cancellation_after_joining_credits_the_invoice_and_drafts_the_refund(self):
+		result = self.admit_and_join(self.applicant(), PURE_OFFICER)
+		from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
+
+		payment = get_payment_entry("Sales Invoice", result["invoice"])
+		payment.reference_no, payment.reference_date = "UTR-PURE", today()
+		payment.insert().submit()
+		frappe.db.set_value("Academic Year", YEAR, "year_start_date", add_days(today(), -20))
+		doc = self.cancel_as_pure_officer(student=result["student"], program_enrollment=result["program_enrollment"])
+		self.assertEqual((flt(doc.deduction), flt(doc.cash_refund)), (10400, 41600))
+		self.assertEqual(frappe.db.get_value("Payment Entry", doc.payment_entry, "docstatus"), 0)
+		self.assertTrue(doc.credit_note)
+
+	def test_a_cancellation_before_joining_drafts_the_advance_refund(self):
+		applicant = self.applicant()
+		student = self.admit_as_officer(applicant, PURE_OFFICER)["student"]
+		self.advance(student, 8000)
+		doc = self.cancel_as_pure_officer(student=student)
+		self.assertEqual(flt(doc.cash_refund), 8000)
+		payment = frappe.get_doc("Payment Entry", doc.payment_entry)
+		self.assertEqual((payment.docstatus, payment.payment_type, flt(payment.paid_amount)), (0, "Pay", 8000))
+
+	def cancel_as_pure_officer(self, **fields):
+		doc = frappe.get_doc(
+			{"doctype": "Admission Cancellation", "cancellation_date": today(), "reason": "Joined another college", **fields}
+		)
+		frappe.set_user(PURE_OFFICER)
+		try:
+			doc.insert()
+			return doc.submit()
+		finally:
+			frappe.set_user("Administrator")

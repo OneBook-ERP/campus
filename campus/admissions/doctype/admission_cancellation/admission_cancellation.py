@@ -217,6 +217,9 @@ def check_advance_refund(doc, method=None):
 
 
 def cancel_enrollment(program_enrollment):
+	# Education's on_cancel deletes the course enrollments as the session user (the officer has no delete right on them)
+	for name in frappe.get_all("Course Enrollment", {"program_enrollment": program_enrollment}, pluck="name"):
+		frappe.delete_doc("Course Enrollment", name, ignore_permissions=True)
 	enrollment = frappe.get_doc("Program Enrollment", program_enrollment)
 	enrollment.flags.ignore_permissions = True
 	enrollment.flags.ignore_links = True  # the cancellation links to the enrollment it cancels

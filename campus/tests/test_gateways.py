@@ -15,6 +15,7 @@ from frappe.utils import flt
 
 from campus.campus_finance import api as finance
 from campus.campus_finance import gateways
+from campus.student_services import portal
 from campus.tests.broadcast_fixtures import make_guardian
 from campus.tests.factories import make_user
 from campus.tests.finance_factories import make_enrolled_students, make_finance_company, make_year_and_program
@@ -23,6 +24,7 @@ from campus.tests.utils import CampusTestCase
 COLLEGE, TRUST = "Gateway Test College", "Gateway Test Trust"
 YEAR, PROGRAM = "Gateway Test 2026", "Gateway Test BE"
 STUDENT_USER, GUARDIAN_USER, STRANGER = "gw-student@example.com", "gw-guardian@example.com", "gw-stranger@example.com"
+ACCOUNTS_USER = "gw-accounts@example.com"
 URL = "https://pay.example.test/checkout/"
 SECRETS = {}
 
@@ -50,6 +52,13 @@ def captured(payment_request, amount, payment_id="pay_1", currency="INR"):
 	return json.dumps({"event": "payment.captured", "payload": {"payment": {"entity": entity}}}).encode()
 
 
+def make_pure_guardian(user):
+	"""A login holding the Guardian role alone, as a real guardian's does (no Student role, no desk role)."""
+	doc = frappe.get_doc("User", user)
+	doc.remove_roles(*[row.role for row in doc.roles if row.role != "Guardian"])
+	doc.add_roles("Guardian")
+
+
 class GatewayFixture(CampusTestCase):
 	@classmethod
 	def setUpClass(cls):
@@ -61,9 +70,12 @@ class GatewayFixture(CampusTestCase):
 		make_year_and_program(COLLEGE, PROGRAM, YEAR)
 		_group, students = make_enrolled_students(COLLEGE, PROGRAM, YEAR, 2, "GwStu")
 		cls.a, cls.b = students
-		for user in (STUDENT_USER, GUARDIAN_USER, STRANGER):
+		for user in (STUDENT_USER, GUARDIAN_USER, STRANGER, ACCOUNTS_USER):
 			make_user(user, [COLLEGE, TRUST])
+		for user in (STUDENT_USER, STRANGER):
 			frappe.get_doc("User", user).add_roles("Student")
+		make_pure_guardian(GUARDIAN_USER)
+		frappe.get_doc("User", ACCOUNTS_USER).add_roles("Accounts User", "Guardian")
 		frappe.db.set_value("Student", cls.a, "user", STUDENT_USER)
 		make_guardian("Gwguardian", [cls.b], user=GUARDIAN_USER)
 		cls.college_account = make_gateway_account(COLLEGE, cls.college["bank"])
@@ -169,6 +181,52 @@ class TestPayNow(GatewayFixture):
 		with patch.object(PaymentRequest, "payment_gateway_validation", return_value=False):
 			with self.assertRaisesRegex(frappe.ValidationError, "not available"):
 				self.link(self.invoice(self.a, COLLEGE))
+
+
+class TestGuardianInvoiceAccess(GatewayFixture):
+	"""ERPNext's Payment Request reads its Sales Invoice as the payer (ERPNext 58de4a5c36): the Guardian role reads
+	Sales Invoice, narrowed by the portal scope to the invoices of the guardian's wards."""
+
+	def as_user(self, user, call, *args, **kwargs):
+		frappe.set_user(user)
+		try:
+			return call(*args, **kwargs)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_a_guardian_pays_a_wards_invoice_through_the_portal(self):
+		invoice = self.invoice(self.b, COLLEGE)
+		result = self.as_user(GUARDIAN_USER, portal.pay_invoice, invoice.name, self.b)
+		(request,) = self.request_of(invoice)
+		self.assertEqual(result["url"], URL + request.name)
+
+	def test_a_guardian_reads_and_lists_only_the_wards_invoices(self):
+		ward, other = self.invoice(self.b, COLLEGE), self.invoice(self.a, COLLEGE)
+		both = {"name": ["in", [ward.name, other.name]]}
+		listed = self.as_user(GUARDIAN_USER, frappe.get_list, "Sales Invoice", filters=both, pluck="name")
+		self.assertEqual(listed, [ward.name])
+		self.assertEqual(self.as_user(GUARDIAN_USER, frappe.client.get_count, "Sales Invoice", both), 1)
+		self.assertTrue(frappe.has_permission("Sales Invoice", "read", doc=ward.name, user=GUARDIAN_USER))
+		self.assertFalse(frappe.has_permission("Sales Invoice", "read", doc=other.name, user=GUARDIAN_USER))
+		with self.assertRaises(frappe.PermissionError):
+			self.as_user(GUARDIAN_USER, frappe.client.get, "Sales Invoice", other.name)
+
+	def test_a_guardian_has_read_alone_on_sales_invoice(self):
+		ward = self.invoice(self.b, COLLEGE)
+		for ptype in ("write", "create", "submit", "cancel", "delete", "report", "export", "import", "share", "print", "email"):
+			with self.subTest(ptype=ptype):
+				self.assertFalse(frappe.has_permission("Sales Invoice", ptype, user=GUARDIAN_USER))
+				self.assertFalse(frappe.has_permission("Sales Invoice", ptype, doc=ward.name, user=GUARDIAN_USER))
+
+	def test_a_desk_users_invoice_access_is_unchanged(self):
+		ward, other = self.invoice(self.b, COLLEGE), self.invoice(self.a, COLLEGE)
+		both = {"name": ["in", [ward.name, other.name]]}
+		listed = self.as_user(ACCOUNTS_USER, frappe.get_list, "Sales Invoice", filters=both, pluck="name")
+		self.assertEqual(set(listed), {ward.name, other.name})  # Accounts User also holding Guardian is not narrowed
+		self.assertEqual(self.as_user(ACCOUNTS_USER, frappe.client.get_count, "Sales Invoice", both), 2)
+		for ptype in ("read", "write", "report", "print"):
+			with self.subTest(ptype=ptype):
+				self.assertTrue(frappe.has_permission("Sales Invoice", ptype, doc=other.name, user=ACCOUNTS_USER))
 
 
 class TestWebhook(GatewayFixture):

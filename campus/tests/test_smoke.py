@@ -16,8 +16,9 @@ def module_packages():
 
 
 class TestSmoke(CampusTestCase):
-	def test_modules_txt_has_seventeen_modules(self):
-		self.assertEqual(len(module_packages()), 17)
+	def test_modules_txt_has_eighteen_modules(self):
+		"""The 17 areas plus Campus Approvals (approvals moved out of Campus Platform for the 16.53 Dock/Sidebar)."""
+		self.assertEqual(len(module_packages()), 18)
 
 	def test_every_module_package_imports(self):
 		for name, dotted in module_packages().items():

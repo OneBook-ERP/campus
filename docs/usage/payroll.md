@@ -12,9 +12,9 @@ Funding Mode (Employee > Faculty tab > Funding Mode: Aided or Self-financing).
   any DA / AGP your college already had, stay as they are.
   - DA and AGP created by Campus round to the nearest rupee; HRMS's Basic and HRA keep paise unless you tick Round to
     the Nearest Integer on them.
-  - Campus EPF: Component Type Provident Fund (the HRMS Provident Fund Deductions report lists it), **not** by
+  - Campus EPF: Component Type Provident Fund (it shows as its own column in the HRMS Salary Register), **not** by
     payment days (it is computed on the already-prorated wage, see below), rounded.
-  - Campus PT: Component Type Professional Tax (the HRMS Professional Tax Deductions report lists it), not by payment
+  - Campus PT: Component Type Professional Tax (its own Salary Register column), not by payment
     days, rounded; a placeholder until you configure it.
   - Component Type is a field HRMS India adds with the first Indian company. On a new site set up before any company,
     the next migrate fills it on Campus EPF / PT.
@@ -82,9 +82,10 @@ assignment; earlier months keep the old one. The increment rate (for example 3% 
 rule under its pay commission; Campus does not compute it, so no increment helper is added.
 
 ## PF, ESI and PT: what exists and what does not
-india_compliance has no payroll features; HRMS provides the components and two reports.
-- **Provident Fund**: Campus EPF is the deduction row in both structures; the HRMS Provident Fund Deductions report
-  finds it through its Component Type. HRMS's own Provident Fund component is not used or changed. Not provided: the
+india_compliance has no payroll features; HRMS provides the components (HRMS 16 dropped its Provident Fund and
+Professional Tax Deductions reports: use the Salary Register, which has a column per component).
+- **Provident Fund**: Campus EPF is the deduction row in both structures; the Salary Register lists it in its own
+  column and its Component Type stays Provident Fund. HRMS's own Provident Fund component is not used or changed. Not provided: the
   employer's share (EPF 3.67% / EPS 8.33%) and the EPFO ECR file. Add an Employer Contribution component and row if
   you need the employer share on the slip. Aided colleges whose teachers subscribe to GPF can replace the row.
 - **Professional Tax**: Campus PT is seeded **disabled**: the row has amount 0 and the Condition

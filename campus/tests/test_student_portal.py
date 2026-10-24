@@ -82,6 +82,16 @@ class TestPortalOwnership(PortalFixture):
 		with self.assertRaises(frappe.PermissionError):
 			portal.get_fees(self.s22.name)
 
+	def test_the_student_role_reads_and_prints_its_invoices_but_cannot_write_or_export_them(self):
+		"""Step 14: Education's Student rule on Sales Invoice is narrowed to read and print (the portal receipt)."""
+		for ptype, expected in (("read", True), ("print", True), ("write", False), ("export", False), ("email", False), ("share", False)):
+			self.assertEqual(
+				frappe.has_permission("Sales Invoice", ptype, "PORTAL-INV-1", user=STUDENT_22_USER), expected, ptype
+			)
+		self.assertFalse(frappe.has_permission("Sales Invoice", "read", "PORTAL-INV-3", user=STUDENT_22_USER))  # a classmate's
+		self.as_user(STUDENT_22_USER)
+		self.assertEqual(sorted(frappe.get_list("Sales Invoice", pluck="name")), ["PORTAL-INV-1", "PORTAL-INV-2"])
+
 	def test_attendance_is_own_only_and_works_without_student_read_permission(self):
 		self.as_user(STUDENT_22_USER)
 		data = portal.get_attendance(academic_term=self.term)

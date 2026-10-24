@@ -195,16 +195,18 @@ def setup_admission_fields():
 	frappe.db.add_index("Student", ["student_applicant"], APPLICANT_INDEX)
 
 
-# Read rights ERPNext's invoice and payment validation checks even when ignore_permissions is set (item
-# details, party account and the like); company User Permissions still scope the company-linked ones. Sales Invoice
-# and Payment Entry are not here: Confirm Joining raises the invoice with elevated rights, so the officer never opens
-# one (patch retire_officer_invoice_read took the old read away; it would also put Fees and Finance in their Dock).
-OFFICER_READ = ("Account", "Item", "Customer", "Cost Center", "Price List")
+# Read rights ERPNext's validation checks as the session user even when ignore_permissions is set (item details, party
+# account, the Payment Entry the cancellation refund drafts, the fee invoice Confirm Joining raises); company User
+# Permissions still scope the company-linked ones. Sales Invoice and Payment Entry were taken away once and are back:
+# test_admission_flow.TestOfficerWithoutInvoiceRights ran Confirm Joining and both cancellations without them and failed.
+# Read only: no write, create, export or print.
+OFFICER_READ = ("Account", "Item", "Cost Center", "Price List", "Sales Invoice", "Payment Entry", "Course Enrollment")
 # The officer's own work on Education records without the office role (Academics User): the applicants they convert,
 # check and admit, the Student whose form holds Confirm Joining, the enrollments the admission reports count, and the
 # masters an applicant links. Custom DocPerm: Education's DocType JSON is never edited.
 OFFICER_RIGHTS = {
 	"Student Applicant": ("write", "create", "report"),
+	"Customer": ("write", "create"),  # Education creates the Student's Customer with the session user's rights
 	"Student": ("report",),
 	"Program Enrollment": ("report",),
 	"Program": (),
@@ -225,3 +227,4 @@ def grant_officer_read_access():
 		add_permission(doctype, OFFICER_ROLE, 0)
 		for right in OFFICER_RIGHTS.get(doctype, ()):
 			update_permission_property(doctype, OFFICER_ROLE, 0, right, 1)
+		update_permission_property(doctype, OFFICER_ROLE, 0, "export", 0)  # Custom DocPerm defaults to export 1

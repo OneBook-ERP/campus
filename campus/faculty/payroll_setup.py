@@ -3,8 +3,8 @@
 Campus never changes a Salary Component it did not create. Each run creates, when missing:
 - the pay components Basic, Dearness Allowance (DA), House Rent Allowance (HRA) and Academic Grade Pay (AGP)
   (DA and AGP round to the nearest rupee);
-- its own statutory components "Campus EPF" (Component Type Provident Fund, so the HRMS Provident Fund Deductions
-  report finds it; not by payment days, rounded) and "Campus PT" (Component Type Professional Tax, a disabled
+- its own statutory components "Campus EPF" (Component Type Provident Fund, so PF listings over the slips find
+  it; not by payment days, rounded) and "Campus PT" (Component Type Professional Tax, a disabled
   placeholder). HRMS's Provident Fund and Professional Tax are left alone. The Component Type field comes from HRMS
   India with the first Indian company, so it is filled on Campus's components on a later run if it was missing.
 Once per college (Company.oc_payroll_templates_seeded): one draft Salary Structure per funding mode (Aided,

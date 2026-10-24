@@ -520,6 +520,14 @@ has_permission = {
 	"File": "campus.examinations.question_papers.file_has_permission",
 }
 has_permission["Appraisal"] = "campus.faculty.self_appraisal.has_permission"
+# G03: an Admission Officer reads and checks (Import Check) only the Data Imports they made
+permission_query_conditions["Data Import"] = "campus.admissions.legacy_import.own_imports_query"
+has_permission["Data Import"] = "campus.admissions.legacy_import.own_import_has_permission"
+# M12-01: a Lab In-charge (with no other asset-reading role) reads only the assets located in a laboratory
+permission_query_conditions["Asset"] = "campus.labs.access.asset_query"
+has_permission["Asset"] = "campus.labs.access.asset_has_permission"
+permission_query_conditions["Asset Maintenance"] = "campus.labs.access.maintenance_query"
+has_permission["Asset Maintenance"] = "campus.labs.access.maintenance_has_permission"
 # P3-T03: a criterion owner sees and edits only the Metric Values under their criteria
 permission_query_conditions["Metric Value"] = "campus.iqac.access.permission_query"
 has_permission["Metric Value"] = "campus.iqac.access.has_permission"

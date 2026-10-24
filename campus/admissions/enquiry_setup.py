@@ -32,6 +32,7 @@ def grant_officer_lead_access():
 
 	if not frappe.db.exists("Custom DocPerm", {"parent": "Lead", "role": OFFICER_ROLE, "permlevel": 0}):
 		add_permission("Lead", OFFICER_ROLE, 0)
+		update_permission_property("Lead", OFFICER_ROLE, 0, "export", 0)  # Custom DocPerm defaults to export 1
 	for right in ("write", "create", "report"):
 		update_permission_property("Lead", OFFICER_ROLE, 0, right, 1)
 

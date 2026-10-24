@@ -225,6 +225,8 @@ class TestPilotSetup(IntegrationTestCase):
 		self.assertEqual(setup_college("sxcce", test_passwords=True)["updated"], {})
 
 	def test_a_user_outside_the_kit_keeps_its_own_blocked_modules(self):
+		frappe.db.savepoint("bystander_user")
+		self.addCleanup(frappe.db.rollback, save_point="bystander_user")  # the class counts Users (second run test)
 		email = "bystander.modules@example.com"
 		frappe.get_doc({"doctype": "User", "email": email, "first_name": "By", "send_welcome_email": 0,
 			"block_modules": [{"module": "Selling"}]}).insert(ignore_permissions=True)
@@ -237,15 +239,15 @@ class TestPilotSetup(IntegrationTestCase):
 		profile["users"][0]["module_profile"] = "Nope"
 		self.assertTrue(any("Nope" in message for message in profile_errors(profile)))
 
-	def test_the_admission_officer_holds_no_office_role_and_no_invoice_rights(self):
+	def test_the_admission_officer_holds_no_office_role_and_only_reads_invoices(self):
 		officer = f"admissions@{SXCCE['user_domain']}"
 		frappe.get_doc("User", officer).add_roles("Academics User")  # what the kit once gave
 		setup_college("sxcce", test_passwords=True)
 		self.assertNotIn("Academics User", frappe.get_roles(officer))
 		self.assertIn("Admission Officer", frappe.get_roles(officer))
 		for doctype in ("Sales Invoice", "Payment Entry"):
-			self.assertFalse(frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": "Admission Officer"}), doctype)
-			self.assertFalse(frappe.has_permission(doctype, "read", user=officer), doctype)
+			self.assertTrue(frappe.has_permission(doctype, "read", user=officer), doctype)
+			self.assertFalse(frappe.has_permission(doctype, "write", user=officer), doctype)
 		areas = {row["link_to"] for row in desk_boot(officer).dock["campus"]}
 		self.addCleanup(frappe.set_user, "Administrator")
 		self.assertTrue({"Examinations", "Fees and Finance", "Faculty"}.isdisjoint(areas), areas)

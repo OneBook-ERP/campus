@@ -188,7 +188,8 @@ class TestAnonymity(FeedbackFixture):
 		[token] = tokens
 		self.assertEqual((token.owner, token.modified_by), ("Guest", "Guest"))
 		self.assertEqual(token.creation.date(), getdate(campaign.start_date))  # the campaign's start, not the response day
-		extra = set(token) - set(frappe.model.default_fields) - set(frappe.model.optional_fields) - {"campaign"}
+		self.assertFalse(token._comments)  # a framework column (no longer in optional_fields since 16.53), left empty
+		extra = set(token) - set(frappe.model.default_fields) - set(frappe.model.optional_fields) - {"campaign", "_comments"}
 		self.assertEqual(extra, set())  # nothing but the hash and the campaign
 
 	def test_no_version_follow_comment_or_log_names_the_response(self):

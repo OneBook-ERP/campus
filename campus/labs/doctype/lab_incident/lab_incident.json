@@ -116,7 +116,7 @@
  "istable": 0,
  "issingle": 0,
  "links": [],
- "modified": "2026-10-22 15:00:00.000000",
+ "modified": "2026-10-24 03:00:00.000000",
  "modified_by": "Administrator",
  "module": "Labs",
  "name": "Lab Incident",
@@ -152,6 +152,12 @@
    "report": 1,
    "print": 1,
    "export": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "print": 1,
+   "role": "Principal"
   }
  ]
 }

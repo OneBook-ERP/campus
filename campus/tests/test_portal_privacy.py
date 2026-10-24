@@ -99,7 +99,7 @@ class TestPortalPrivacy(ExamFixture):
 			with self.subTest(doctype=doctype):
 				mine, other = self.rows[doctype][self.s22.name], self.rows[doctype][self.s26.name]
 				if not frappe.has_permission(doctype, "read", user=GUARDIAN_USER):
-					continue  # upstream grants Sales Invoice read to Student only
+					continue  # the Guardian role reads Sales Invoice too since the gateway fix (campus_finance.setup)
 				self.assertIn(mine, self.listed(GUARDIAN_USER, doctype))
 				self.assertNotIn(other, self.listed(GUARDIAN_USER, doctype))
 				self.assertTrue(self.can_get_doc(GUARDIAN_USER, doctype, mine))

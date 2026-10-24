@@ -43,4 +43,5 @@ campus.patches.clear_legacy_attendance_start_dates
 campus.patches.document_reminder_due_date
 campus.patches.drop_converted_sidebars
 campus.patches.link_area_pack_workspaces
-campus.patches.retire_officer_invoice_read
+campus.patches.narrow_officer_rights
+campus.patches.retire_fee_collection_role

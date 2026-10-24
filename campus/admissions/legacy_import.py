@@ -242,26 +242,58 @@ def download_import_template(template: str, file_type: str = "CSV"):
 	return download_template(spec["doctype"], spec["fields"], "blank_template", file_type)
 
 
-# The Admission Officer checks the batch files they load (UAT admission-officer step 3): Data Import rights on their
-# own imports only (if_owner), so no other import or its file is opened. The report needs report rights on Data Import.
+# The Admission Officer checks the batch files they load (UAT admission-officer step 3). The Import Check report needs
+# doctype-level report rights on Data Import, which an if_owner rule does not give, so the rule is plain and
+# own_imports_query / own_import_has_permission narrow the officer to the imports they made: no other import or its
+# file is opened.
 IMPORT_CHECK_ROLE = "Admission Officer"
-IMPORT_CHECK_RIGHTS = {"read": 1, "write": 1, "create": 1, "report": 1, "if_owner": 1}
+IMPORT_CHECK_RIGHTS = {"read": 1, "report": 1}  # no write/create: the officer cannot start or stop an import
+FIRST_CUT_RIGHTS = {"read": 1, "write": 1, "create": 1, "report": 1}  # the earlier rule, which patch narrow_officer_rights trims
+OWN_IMPORTS_EXEMPT = ("System Manager",)  # Data Import's own role reads every import
 
 
 def grant_import_check_rights():
-	"""Add the role's own-imports rule when the role has no Data Import rule (a rule the college edited stays)."""
+	"""Add the role's rule when it has none (a rule the college edited stays). The first cut of this rule was if_owner,
+	which kept the report shut; that exact rule is turned into the plain one (the patch narrow_officer_rights takes
+	write and create away from a rule that still has them)."""
 	from frappe.permissions import setup_custom_perms
 
-	if frappe.db.exists("Custom DocPerm", {"parent": "Data Import", "role": IMPORT_CHECK_ROLE}):
+	rule = frappe.db.get_value(
+		"Custom DocPerm", {"parent": "Data Import", "role": IMPORT_CHECK_ROLE, "permlevel": 0},
+		["name", "if_owner", *FIRST_CUT_RIGHTS], as_dict=True,
+	)  # fmt: skip
+	if rule:
+		if rule.if_owner and all(rule[right] == value for right, value in FIRST_CUT_RIGHTS.items()):
+			frappe.db.set_value("Custom DocPerm", rule.name, {"if_owner": 0, "write": 0, "create": 0, "export": 0})
+			frappe.clear_cache(doctype="Data Import")
 		return
 	setup_custom_perms("Data Import")  # copies the standard rules first, so System Manager keeps its own
 	frappe.get_doc(
 		{
 			"doctype": "Custom DocPerm", "parent": "Data Import", "parenttype": "DocType", "parentfield": "permissions",
-			"role": IMPORT_CHECK_ROLE, "permlevel": 0, **IMPORT_CHECK_RIGHTS,
+			"role": IMPORT_CHECK_ROLE, "permlevel": 0, "export": 0, **IMPORT_CHECK_RIGHTS,
 		}
 	).insert(ignore_permissions=True)  # fmt: skip
 	frappe.clear_cache(doctype="Data Import")
+
+
+def limited_to_own_imports(user):
+	roles = set(frappe.get_roles(user))
+	return IMPORT_CHECK_ROLE in roles and not roles & set(OWN_IMPORTS_EXEMPT)
+
+
+def own_imports_query(user=None):
+	"""permission_query_conditions for Data Import: an Admission Officer lists only the imports they made."""
+	user = user or frappe.session.user
+	if limited_to_own_imports(user):
+		return f"`tabData Import`.owner = {frappe.db.escape(user)}"
+	return ""
+
+
+def own_import_has_permission(doc, ptype=None, user=None):
+	"""Deny-only: an Admission Officer opens only the imports they made."""
+	user = user or frappe.session.user
+	return not limited_to_own_imports(user) or doc.owner == user
 
 
 @frappe.whitelist()

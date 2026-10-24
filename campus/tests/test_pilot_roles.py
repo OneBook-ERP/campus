@@ -15,6 +15,7 @@ from frappe.desk.query_report import get_report_doc
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, add_to_date, now_datetime, today
 
+from campus.admissions.setup import OFFICER_READ, OFFICER_RIGHTS
 from campus.campus_platform.api import latest_request
 from campus.campus_platform.approvals import approve, request_approval
 from campus.faculty import attendance_corrections, portal, portal_mentoring
@@ -53,7 +54,7 @@ REPORTS = {
 	"class_advisor": ("My Pending Approvals", "Attendance Shortage", "Mentoring Activity"),
 	"coe": ("My Pending Approvals", "Exam Eligibility Withheld", "CIA Status by Offering", "Result Analysis", "Rank List", "Arrear List"),
 	"principal": ("My Pending Approvals", "Result Analysis", "Lab Equipment Register"),
-	"accounts": ("Student Fee Collection", "Student Fee Ledger"),
+	"accounts": ("Student Fee Ledger",),
 	"admissions": (
 		"Import Check", "Live Seat Matrix", "Pending Documents", "Admission No-Shows", "Admissions by Quota and Category",
 		"Refund Register",
@@ -163,6 +164,13 @@ class TestKitRoleSets(IntegrationTestCase):
 			for report in reports:
 				self.assertEqual(as_user(user, get_report_doc, report).name, report, f"{key}: {report}")
 
+	def test_accounts_does_not_open_the_unscoped_education_fee_collection_report(self):
+		"""Education's Student Fee Collection is not company-scoped: Accounts uses the campus Student Fee Ledger."""
+		user = kit_login("accounts")
+		with self.assertRaises(frappe.PermissionError):
+			as_user(user, get_report_doc, "Student Fee Collection")
+		self.assertFalse(frappe.db.exists("Custom Role", {"report": "Student Fee Collection"}))
+
 	def test_the_office_reads_the_instructor_records_it_allocates(self):
 		user = kit_login("office")  # Faculty > Setup > Instructor; Course Allocation and Timetable name instructors
 		self.assertTrue(frappe.has_permission("Instructor", "read", user=user))
@@ -180,11 +188,16 @@ class TestKitRoleSets(IntegrationTestCase):
 		for doctype, ptype in granted:
 			self.assertTrue(frappe.has_permission(doctype, ptype, user=user), f"{doctype} {ptype}")
 		refused = (
-			("Student", "create"), ("Student", "write"), ("Program Enrollment", "create"), ("Sales Invoice", "read"),
-			("Payment Entry", "read"), ("Student Result", "read"), ("Course Schedule", "read"),
+			("Student", "create"), ("Student", "write"), ("Program Enrollment", "create"), ("Sales Invoice", "write"),
+			("Payment Entry", "write"), ("Student Result", "read"), ("Course Schedule", "read"),
+			("Data Import", "write"), ("Data Import", "create"),
 		)  # fmt: skip
 		for doctype, ptype in refused:
 			self.assertFalse(frappe.has_permission(doctype, ptype, user=user), f"{doctype} {ptype}")
+		for doctype in (*OFFICER_READ, *OFFICER_RIGHTS, "Lead", "Data Import"):  # export: the Custom DocPerm default must be cleared
+			self.assertEqual(
+				frappe.db.get_value("Custom DocPerm", {"parent": doctype, "role": "Admission Officer", "permlevel": 0}, "export"), 0, doctype
+			)  # (Desk User carries export on a few DocTypes without read, which opens nothing)
 
 	@mock.patch("campus.campus_platform.pack_visibility.hidden_workspaces", return_value=set())
 	def test_the_admission_officer_docks_admissions_and_the_student_list_only(self, _packs):

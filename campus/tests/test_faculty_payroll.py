@@ -27,6 +27,7 @@ Hand figures from the seeded structure records (DA, AGP and Campus EPF round to 
 from unittest import mock
 
 import frappe
+from frappe.utils import flt
 
 from campus.faculty import api, payroll_setup
 from campus.faculty.payroll_setup import EPF, PT, seed_salary_components, seed_salary_structures, structure_name
@@ -152,14 +153,22 @@ class TestPayrollEntry(PayrollFixture):
 			({"Basic": 10000, "Dearness Allowance": 1000, "House Rent Allowance": 1000, "Campus EPF": 1320}, (12000, 1320, 10680)),
 		)
 
-	def test_pf_report_finds_campus_epf(self):
-		from hrms.payroll.report.provident_fund_deductions.provident_fund_deductions import execute
-
+	def test_submitted_slips_carry_campus_epf_as_provident_fund(self):
+		"""HRMS 16 dropped its Provident Fund Deductions report; PF listings now read the slips' Provident Fund-type rows."""
 		self.submit_structures()
 		self.assign_demo_staff()
 		self.direct_slip(self.self_financing).submit()
-		_columns, data = execute({"company": self.company, "month": 9, "year": 2026})
-		self.assertEqual([(r["employee"], r["pf_amount"]) for r in data], [(self.self_financing, 1800)])
+		slip, detail, component = frappe.qb.DocType("Salary Slip"), frappe.qb.DocType("Salary Detail"), frappe.qb.DocType("Salary Component")
+		pf = (
+			frappe.qb.from_(slip)
+			.join(detail).on((detail.parent == slip.name) & (detail.parenttype == "Salary Slip") & (detail.parentfield == "deductions"))
+			.join(component).on(component.name == detail.salary_component)
+			.where((slip.docstatus == 1) & (slip.company == self.company) & (slip.start_date == START))
+			.where(component.component_type == "Provident Fund")
+			.select(slip.employee, detail.salary_component, detail.amount)
+			.run()
+		)
+		self.assertEqual([(e, c, flt(a)) for e, c, a in pf], [(self.self_financing, EPF, 1800)])
 
 	def test_fractional_amounts_round_on_the_seeded_components(self):
 		self.submit_structures()
