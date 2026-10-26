@@ -133,14 +133,14 @@ jobs:
 
       - name: Add to hosts
         run: echo "127.0.0.1 test_site" | sudo tee -a /etc/hosts
-
       - name: Install
         id: install
+        timeout-minutes: 20
         run: |
           started=$(date +%s)
           bash "${GITHUB_WORKSPACE}/.github/helper/install.sh"
           echo "seconds=$(( $(date +%s) - started ))" >> "$GITHUB_OUTPUT"
-
+      
       - name: Prune uv downloads for cache storage
         if: matrix.container == 1
         continue-on-error: true
