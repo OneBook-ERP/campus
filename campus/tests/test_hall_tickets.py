@@ -365,3 +365,27 @@ class TestPortal(HallTicketFixture):
 		body = get_response("campus-portal").get_data(as_text=True)
 		self.assertIn("Exam registration not confirmed", body)
 		self.assertNotIn("format=Hall%20Ticket", body)
+
+
+class TestManualHallTicketCreation(HallTicketFixture):
+	def test_get_ticket_preview(self):
+		preview = hall_tickets.get_ticket_preview(self.reg(self.ok).name)
+		self.assertEqual(preview["student"], self.ok)
+		self.assertEqual(preview["exam_session"], self.session.name)
+		self.assertEqual(preview["status"], "Issued")
+		self.assertTrue(len(preview["courses"]) > 0)
+
+	def test_manual_creation_auto_populates_and_issues_qr(self):
+		reg_name = self.reg(self.ok).name
+		ticket = frappe.new_doc("Hall Ticket")
+		ticket.exam_registration = reg_name
+		ticket.insert()
+
+		self.assertEqual(ticket.student, self.ok)
+		self.assertEqual(ticket.exam_session, self.session.name)
+		self.assertEqual(ticket.status, "Issued")
+		self.assertEqual(len(ticket.courses), 2)
+
+		# Verifiable document (QR) was issued
+		docs = self.documents(self.ok, "Valid")
+		self.assertEqual(len(docs), 1)

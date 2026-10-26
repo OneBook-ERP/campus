@@ -51,22 +51,34 @@ def generate_ticket(registration, run):
 	return generate(registration)
 
 
+@frappe.whitelist()
+def get_ticket_preview(registration):
+	"""Return preview ticket_values for client form populating."""
+	reg = frappe.get_doc(REGISTRATION, registration)
+	reg.check_permission("read")
+	return ticket_values(reg)
+
+
 def generate(registration):
 	"""Create or refresh the Hall Ticket of a registration; returns its name."""
-	reg = frappe.get_doc(REGISTRATION, registration, for_update=True)
-	values = ticket_values(reg)
-	name = ticket_name(reg.exam_session, reg.student)
-	# locking reads: a plain one after the registration lock sees this transaction's older snapshot
-	exists = frappe.db.get_value(DOCTYPE, name, "name", for_update=True)
-	ticket = frappe.get_doc(DOCTYPE, name, for_update=True) if exists else frappe.new_doc(DOCTYPE)
-	changed = not exists or content(ticket) != content(frappe._dict(values))
-	if changed:
-		ticket.update({**values, "courses": []})
-		for row in values["courses"]:
-			ticket.append("courses", row)
-		ticket.save()
-	refresh_qr(ticket, changed)
-	return ticket.name
+	frappe.flags.in_hall_ticket_generation = True
+	try:
+		reg = frappe.get_doc(REGISTRATION, registration, for_update=True)
+		values = ticket_values(reg)
+		name = ticket_name(reg.exam_session, reg.student)
+		# locking reads: a plain one after the registration lock sees this transaction's older snapshot
+		exists = frappe.db.get_value(DOCTYPE, name, "name", for_update=True)
+		ticket = frappe.get_doc(DOCTYPE, name, for_update=True) if exists else frappe.new_doc(DOCTYPE)
+		changed = not exists or content(ticket) != content(frappe._dict(values))
+		if changed:
+			ticket.update({**values, "courses": []})
+			for row in values["courses"]:
+				ticket.append("courses", row)
+			ticket.save()
+		refresh_qr(ticket, changed)
+		return ticket.name
+	finally:
+		frappe.flags.in_hall_ticket_generation = False
 
 
 def ticket_values(reg):
