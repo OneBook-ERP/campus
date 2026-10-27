@@ -1,14 +1,14 @@
 name: Server Tests
 
-# Tiered: a pull request runs the install, migrate and a quick set of modules; a push to develop or main and the
-# nightly run take the whole suite, split across runners.
+# Performance-only replacement for develop at 2f14157.
+# Keep the existing triggers, check name, database and test selection.
 on:
   pull_request:
     paths-ignore:
       - "**.md"
       - "docs/**"
   push:
-    branches: [develop, main]
+    branches: [develop,main]
     paths-ignore:
       - "**.md"
       - "docs/**"
@@ -28,9 +28,12 @@ concurrency:
   group: server-tests-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 env:
   FULL_SUITE: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.full) }}
-  # The quick set for pull requests: install sanity, navigation, permissions and the admission path
   QUICK_MODULES: >-
     campus.tests.test_smoke
     campus.tests.test_navigation
@@ -42,14 +45,18 @@ env:
 jobs:
   tests:
     name: Server tests (${{ matrix.container }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
-
     strategy:
       fail-fast: false
       matrix:
-        # Pull requests use container 1 only (the quick set); the full suite is split over all of them
-        container: ${{ fromJSON(github.event_name == 'pull_request' && '[1]' || '[1,2,3,4,5,6,7,8]') }}
+        # Manual full=false and pull requests both use one quick-test runner.
+        container: >-
+          ${{ fromJSON(
+            (github.event_name != 'pull_request' &&
+            (github.event_name != 'workflow_dispatch' || inputs.full)) &&
+            '[1,2,3,4,5,6,7,8]' || '[1]'
+          ) }}
 
     services:
       mariadb:
@@ -64,10 +71,10 @@ jobs:
       - name: Clone
         uses: actions/checkout@v6
         with:
-          # the nightly run tests develop, where work lands
           ref: ${{ github.event_name == 'schedule' && 'develop' || '' }}
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
@@ -81,46 +88,135 @@ jobs:
           fi
 
       - name: Set up Node
+        id: node
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          check-latest: true
+          # Prefer the runner's installed matching release.
+          check-latest: false
+
+      - name: Build download cache keys
+        id: cache-keys
+        env:
+          PYTHON_VERSION: ${{ steps.python.outputs.python-version }}
+          NODE_VERSION: ${{ steps.node.outputs.node-version }}
+          DEPENDENCY_HASH: ${{ hashFiles('.github/helper/install.sh', 'pyproject.toml', '**/requirements*.txt', '**/package.json', '**/yarn.lock', 'uv.lock') }}
+          
+        run: |
+          # Set paths at step runtime: runner.temp is not a job-env context.
+          {
+            echo "UV_CACHE_DIR=${RUNNER_TEMP}/campus-uv-cache"
+            echo "PIP_CACHE_DIR=${RUNNER_TEMP}/campus-pip-cache"
+            echo "YARN_CACHE_FOLDER=${RUNNER_TEMP}/campus-yarn-cache"
+          } >> "$GITHUB_ENV"
+          platform="${RUNNER_OS}-${RUNNER_ARCH}-bench-downloads-v1-py${PYTHON_VERSION}-node${NODE_VERSION}"
+          {
+            echo "platform=${platform}"
+            echo "dependencies=${platform}-${DEPENDENCY_HASH}"
+            echo "key=${platform}-${DEPENDENCY_HASH}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Restore dependency downloads
+        id: downloads
+        continue-on-error: true
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: ${{ steps.cache-keys.outputs.key }}
+          restore-keys: |
+            ${{ steps.cache-keys.outputs.dependencies }}-
+            ${{ steps.cache-keys.outputs.platform }}-
 
       - name: Add to hosts
         run: echo "127.0.0.1 test_site" | sudo tee -a /etc/hosts
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-pip-
-
       - name: Install
-        run: bash ${GITHUB_WORKSPACE}/.github/helper/install.sh
+        id: install
+        timeout-minutes: 20
+        run: |
+          started=$(date +%s)
+          bash "${GITHUB_WORKSPACE}/.github/helper/install.sh"
+          echo "seconds=$(( $(date +%s) - started ))" >> "$GITHUB_OUTPUT"
+      
+      - name: Prune uv downloads for cache storage
+        if: matrix.container == 1
+        continue-on-error: true
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv cache prune --ci
+          fi
+
+      - name: Save dependency downloads
+        # One writer per run; save before tests so a test failure does not
+        # discard newly downloaded dependencies. uv/pip/Yarn still resolve
+        # and install dependencies normally on every runner.
+        if: matrix.container == 1 && steps.downloads.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: ${{ steps.cache-keys.outputs.key }}
 
       - name: Migrate
-        run: cd ~/frappe-bench && bench --site test_site migrate
+        id: migrate
+        run: |
+          started=$(date +%s)
+          cd ~/frappe-bench
+          bench --site test_site migrate
+          echo "seconds=$(( $(date +%s) - started ))" >> "$GITHUB_OUTPUT"
 
       - name: Quick tests
+        id: quick
         if: env.FULL_SUITE != 'true'
         run: |
+          started=$(date +%s)
           cd ~/frappe-bench
           failed=""
           for module in $QUICK_MODULES; do
             bench --site test_site run-tests --app campus --module "$module" || failed="$failed $module"
           done
+          echo "seconds=$(( $(date +%s) - started ))" >> "$GITHUB_OUTPUT"
           if [ -n "$failed" ]; then
             echo "Failed modules:$failed"
             exit 1
           fi
 
       - name: Full suite (part ${{ matrix.container }} of ${{ strategy.job-total }})
+        id: full
         if: env.FULL_SUITE == 'true'
         run: |
+          started=$(date +%s)
           cd ~/frappe-bench
           bench --site test_site run-parallel-tests --app campus \
             --total-builds ${{ strategy.job-total }} --build-number ${{ matrix.container }}
+          echo "seconds=$(( $(date +%s) - started ))" >> "$GITHUB_OUTPUT"
+
+      - name: Performance summary
+        if: always()
+        env:
+          SHARD: ${{ matrix.container }}
+          CACHE_MATCH: ${{ steps.downloads.outputs.cache-matched-key || 'miss' }}
+          INSTALL_SECONDS: ${{ steps.install.outputs.seconds || 'not completed' }}
+          MIGRATE_SECONDS: ${{ steps.migrate.outputs.seconds || 'not completed' }}
+          TEST_SECONDS: ${{ steps.full.outputs.seconds || steps.quick.outputs.seconds || 'not completed' }}
+        run: |
+          {
+            echo "### Server CI performance"
+            echo ""
+            echo "| Measurement | Value |"
+            echo "| --- | --- |"
+            echo "| Runner | ${SHARD} |"
+            echo "| Full suite | ${FULL_SUITE} |"
+            echo "| Dependency cache | ${CACHE_MATCH} |"
+            echo "| Install seconds | ${INSTALL_SECONDS} |"
+            echo "| Migrate seconds | ${MIGRATE_SECONDS} |"
+            echo "| Test seconds | ${TEST_SECONDS} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Bench log on failure
         if: failure()

@@ -10,54 +10,126 @@ concurrency:
   group: linters-${{ github.event.number }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   linters:
     name: Linters
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      PRE_COMMIT_VERSION: "4.7.0"
     steps:
       - uses: actions/checkout@v6
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
 
+      - name: Configure tool paths
+        run: |
+          {
+            echo "PRE_COMMIT_HOME=${RUNNER_TEMP}/pre-commit-cache"
+            echo "TOOL_VENV=${RUNNER_TEMP}/pre-commit-venv"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore pre-commit and hook environments
+        id: hooks
+        continue-on-error: true
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ${{ env.TOOL_VENV }}
+            ${{ env.PRE_COMMIT_HOME }}
+          key: ${{ runner.os }}-${{ runner.arch }}-precommit-v1-py${{ steps.python.outputs.python-version }}-${{ env.PRE_COMMIT_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Prepare pre-commit and hooks
+        if: steps.hooks.outputs.cache-hit != 'true'
+        run: |
+          python -m venv "$TOOL_VENV"
+          "$TOOL_VENV/bin/python" -m pip install "pre-commit==${PRE_COMMIT_VERSION}"
+          "$TOOL_VENV/bin/pre-commit" install-hooks
+
+      - name: Save pre-commit and hook environments
+        # Tool preparation is cached even when later formatting checks fail.
+        if: steps.hooks.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ${{ env.TOOL_VENV }}
+            ${{ env.PRE_COMMIT_HOME }}
+          key: ${{ runner.os }}-${{ runner.arch }}-precommit-v1-py${{ steps.python.outputs.python-version }}-${{ env.PRE_COMMIT_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
       - name: Pre-commit
-        uses: pre-commit/action@v3.0.1
+        run: '"$TOOL_VENV/bin/pre-commit" run --show-diff-on-failure --color=always --all-files'
 
   semgrep:
     name: Semgrep
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      SEMGREP_VERSION: "1.182.1"
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # diff-aware: only findings on lines a pull request adds or changes are reported
+          fetch-depth: 0
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+
+      - name: Configure tool paths
+        run: echo "TOOL_VENV=${RUNNER_TEMP}/semgrep-venv" >> "$GITHUB_ENV"
+
+      - name: Restore Semgrep environment
+        id: semgrep
+        continue-on-error: true
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ${{ env.TOOL_VENV }}
+          key: ${{ runner.os }}-${{ runner.arch }}-semgrep-v1-py${{ steps.python.outputs.python-version }}-${{ env.SEMGREP_VERSION }}
+
+      - name: Install Semgrep
+        if: steps.semgrep.outputs.cache-hit != 'true'
+        run: |
+          python -m venv "$TOOL_VENV"
+          "$TOOL_VENV/bin/python" -m pip install "semgrep==${SEMGREP_VERSION}"
+
+      - name: Save Semgrep environment
+        if: steps.semgrep.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ${{ env.TOOL_VENV }}
+          key: ${{ runner.os }}-${{ runner.arch }}-semgrep-v1-py${{ steps.python.outputs.python-version }}-${{ env.SEMGREP_VERSION }}
 
       - name: Download Frappe Semgrep rules
         run: git clone --depth 1 https://github.com/frappe/semgrep-rules.git frappe-semgrep-rules
 
-      - name: Install Semgrep
-        run: pip install semgrep
-
       - name: Semgrep
-        run: semgrep ci --config ./frappe-semgrep-rules/rules --config r/python.lang.correctness
+        run: >-
+          "$TOOL_VENV/bin/semgrep" ci
+          --config ./frappe-semgrep-rules/rules
+          --config r/python.lang.correctness
 
   commits:
     name: Commit messages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Conventional commit subjects
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          bad=$(git log --format=%s "origin/${{ github.base_ref }}..HEAD" --no-merges \
+          bad=$(git log --format=%s "origin/${BASE_REF}..HEAD" --no-merges \
             | grep -vE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|wip)(\([^)]+\))?!?: .+' || true)
           if [ -n "$bad" ]; then
             echo "These commit subjects do not follow type(scope): subject:"
