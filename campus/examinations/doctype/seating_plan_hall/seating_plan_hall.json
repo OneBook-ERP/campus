@@ -30,25 +30,28 @@
    "in_list_view": 1
   },
   {
+   "fetch_from": "room.oc_seat_rows",
    "fieldname": "seat_rows",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Rows",
-   "read_only": 1,
-   "in_list_view": 1
+   "read_only": 1
   },
   {
+   "fetch_from": "room.oc_seat_columns",
    "fieldname": "seat_columns",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Columns",
-   "read_only": 1,
-   "in_list_view": 1
+   "read_only": 1
   },
   {
+   "fetch_from": "room.seating_capacity",
    "fieldname": "capacity",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Capacity",
-   "read_only": 1,
-   "in_list_view": 1
+   "read_only": 1
   },
   {
    "fieldname": "seated",
