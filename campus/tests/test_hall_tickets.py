@@ -365,3 +365,15 @@ class TestPortal(HallTicketFixture):
 		body = get_response("campus-portal").get_data(as_text=True)
 		self.assertIn("Exam registration not confirmed", body)
 		self.assertNotIn("format=Hall%20Ticket", body)
+
+
+class TestHallTicketCreationDisabled(HallTicketFixture):
+	def test_hall_ticket_disables_manual_creation(self):
+		"""M06-02: Hall tickets are server-generated; manual creation is disabled in schema and permissions."""
+		meta = frappe.get_meta("Hall Ticket")
+		self.assertEqual(meta.in_create, 1)
+		self.assertEqual(meta.get_field("exam_registration").read_only, 1)
+		# Permissions do not allow direct creation
+		for perm in meta.permissions:
+			self.assertEqual(perm.create, 0)
+		self.assertFalse(frappe.has_permission("Hall Ticket", "create", user=COE_USER))

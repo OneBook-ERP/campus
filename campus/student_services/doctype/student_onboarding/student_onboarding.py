@@ -7,7 +7,31 @@ from frappe.utils import flt, now_datetime
 
 
 class StudentOnboarding(Document):
+	def before_insert(self):
+		if not self.items and (self.student or self.template):
+			details = get_onboarding_template_details(self.student, self.template)
+			if details.get("template") and not self.template:
+				self.template = details["template"]
+			if details.get("items") and not self.items:
+				for item in details["items"]:
+					self.append("items", {**item, "status": "Pending"})
+
 	def validate(self):
+		if self.student and self.template:
+			student_company = frappe.db.get_value("Student", self.student, "oc_company")
+			template_company = frappe.db.get_value("Student Onboarding Template", self.template, "company")
+			if student_company and template_company and student_company != template_company:
+				frappe.throw(
+					_(
+						"Student Onboarding Template {0} belongs to {1}, but Student {2} belongs to {3}."
+					).format(
+						frappe.bold(self.template),
+						frappe.bold(template_company),
+						frappe.bold(self.student),
+						frappe.bold(student_company),
+					),
+					title=_("Company Mismatch"),
+				)
 		for row in self.items:
 			self.check_item(row)
 		self.completion = completion_percent(self.items)
@@ -40,3 +64,44 @@ def completion_percent(items):
 	if not counted:
 		return 100.0
 	return flt(100 * sum(row.status == "Done" for row in counted) / len(counted), 2)
+
+
+@frappe.whitelist()
+def get_onboarding_template_details(student: str | None = None, template: str | None = None) -> dict:
+	"""Resolves the default template and checklist items for a student or given template."""
+	student_company = None
+	if student:
+		frappe.has_permission("Student", "read", student, throw=True)
+		student_company = frappe.db.get_value("Student", student, "oc_company")
+
+	if not template and student:
+		if student_company:
+			template = frappe.db.get_value(
+				"Student Onboarding Template", {"company": student_company, "is_default": 1}
+			)
+
+	if not template:
+		return {"template": None, "items": []}
+
+	frappe.has_permission("Student Onboarding Template", "read", template, throw=True)
+
+	if student and student_company:
+		template_company = frappe.db.get_value("Student Onboarding Template", template, "company")
+		if template_company and template_company != student_company:
+			frappe.throw(
+				_("Student Onboarding Template {0} belongs to {1}, but Student {2} belongs to {3}.").format(
+					frappe.bold(template),
+					frappe.bold(template_company),
+					frappe.bold(student),
+					frappe.bold(student_company),
+				),
+				title=_("Company Mismatch"),
+			)
+
+	items = frappe.get_all(
+		"Student Onboarding Template Item",
+		filters={"parent": template},
+		fields=["item_code", "title", "mandatory", "requires_attachment"],
+		order_by="idx",
+	)
+	return {"template": template, "items": items}

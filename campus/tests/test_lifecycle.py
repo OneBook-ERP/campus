@@ -116,6 +116,23 @@ class TestTransitionService(LifecycleFixture):
 		doc.first_name = "Renamed"
 		doc.save()  # other fields still save
 
+	def test_duplicate_guardians_are_rejected(self):
+		guardian_1 = frappe.get_doc({"doctype": "Guardian", "guardian_name": "Guardian One"}).insert().name
+		guardian_2 = frappe.get_doc({"doctype": "Guardian", "guardian_name": "Guardian Two"}).insert().name
+
+		student = self.student()
+		doc = frappe.get_doc("Student", student)
+		doc.append("guardians", {"guardian": guardian_1})
+		doc.append("guardians", {"guardian": guardian_1})
+		with self.assertRaisesRegex(frappe.ValidationError, "Duplicate guardians are not allowed"):
+			doc.save()
+
+		doc.reload()
+		doc.set("guardians", [])
+		doc.append("guardians", {"guardian": guardian_1})
+		doc.append("guardians", {"guardian": guardian_2})
+		doc.save()
+
 	def test_an_allowed_transition_changes_the_status_and_logs_it(self):
 		student = self.student()
 		enrollment = self.enroll(student)

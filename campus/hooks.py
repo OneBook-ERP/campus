@@ -158,6 +158,7 @@ doc_events = {
 		"Assessment Plan",
 		"Fee Schedule",
 		"Regulation",
+		"Curriculum",
 	]
 }
 for _dt in [
@@ -172,6 +173,7 @@ for _dt in [
 	"Room",
 	"Student Admission",
 	"Assessment Plan",
+	"Curriculum",
 ]:
 	doc_events.setdefault(_dt, {})["before_validate"] = f"{_company_scope}.before_validate"
 
@@ -190,6 +192,7 @@ doc_events["Student Applicant"]["validate"] += [
 	"campus.admissions.allotment_import.set_allotment_key",
 	"campus.admissions.documents.validate_applicant",
 	"campus.admissions.duplicates.validate_applicant",
+	"campus.campus_platform.sanitize.validate_mobile",
 ]
 doc_events["Course Schedule"]["validate"] = [  # L-07: class session states
 	doc_events["Course Schedule"]["validate"],
@@ -199,7 +202,10 @@ doc_events["Course Schedule"]["on_update"] = "campus.faculty.session_states.log_
 doc_events[
 	"Student Attendance"
 ] = {  # L-07: the correction cut-off holds for every writer, desk and Education's tool
-	"validate": "campus.faculty.attendance_corrections.guard_record",
+	"validate": [
+		"campus.faculty.attendance_corrections.guard_record",
+		"campus.campus_platform.sanitize.validate_mobile",
+	],
 	"before_cancel": "campus.faculty.attendance_corrections.guard_cancel",
 }
 doc_events["Program Enrollment"]["on_submit"] = [
@@ -233,10 +239,12 @@ doc_events["Institution Profile"] = {
 }
 doc_events["Student"]["validate"].append("campus.student_services.mentors.set_class_advisor")
 doc_events["Student"]["validate"].append("campus.student_services.lifecycle.validate_student")  # L-01
+doc_events["Student"]["validate"].append("campus.campus_platform.sanitize.validate_mobile")
 doc_events["Student"]["validate"].append("campus.student_services.corrections.guard_locked_fields")  # L-08
 doc_events["Student"]["validate"].append(
 	"campus.examinations.affiliation.validate_university_register_no"
 )  # M06-10
+doc_events.setdefault("Guardian", {})["validate"] = "campus.campus_platform.sanitize.validate_mobile"
 _after_insert = doc_events["Student"].get("after_insert")
 doc_events["Student"]["after_insert"] = [
 	*([_after_insert] if isinstance(_after_insert, str) else _after_insert or []),

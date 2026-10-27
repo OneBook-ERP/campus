@@ -137,8 +137,6 @@
    "report": 1,
    "export": 1,
    "print": 1,
-   "write": 1,
-   "create": 1,
    "delete": 1
   },
   {
@@ -146,9 +144,7 @@
    "read": 1,
    "report": 1,
    "export": 1,
-   "print": 1,
-   "write": 1,
-   "create": 1
+   "print": 1
   },
   {
    "role": "Dean Academics",
@@ -175,5 +171,6 @@
    "print": 1
   }
  ],
- "default_print_format": "Hall Ticket"
+ "default_print_format": "Hall Ticket",
+ "in_create": 1
 }

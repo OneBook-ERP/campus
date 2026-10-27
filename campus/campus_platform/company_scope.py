@@ -32,6 +32,7 @@ COMPANY_FIELD = {
 	**dict.fromkeys(COMPANY_SCOPED_DOCTYPES, "oc_company"),
 	"Fee Schedule": "company",
 	"Regulation": "company",
+	"Curriculum": "company",
 }
 
 # doctype -> (link field on the doc, doctype it points to) whose company is inherited.
@@ -43,6 +44,7 @@ PARENT_LINKS = {
 
 # doctype -> [(table fieldname or None, link fieldname, linked doctype)] that must share the company.
 LINKED_RECORDS = {
+	"Curriculum": [(None, "program", "Program"), (None, "regulation", "Regulation")],
 	"Student Applicant": [(None, "program", "Program"), (None, "student_admission", "Student Admission")],
 	"Program": [("courses", "course", "Course")],
 	"Student Group": [
@@ -95,14 +97,17 @@ def permitted_companies(user):
 
 def before_validate(doc, method=None):
 	"""Set the company from the parent link, falling back to the user's default company."""
+	company_field = COMPANY_FIELD.get(doc.doctype, "oc_company")
+	parent_company = get_parent_company(doc)
+
 	company = (
-		get_parent_company(doc)
-		or doc.oc_company
+		parent_company
+		or doc.get(company_field)
 		or frappe.defaults.get_user_default("Company")
 		or frappe.db.get_single_value("Global Defaults", "default_company")
 	)
 	if company:
-		doc.oc_company = company
+		doc.set(company_field, company)
 
 
 def get_parent_company(doc):

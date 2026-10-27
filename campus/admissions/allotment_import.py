@@ -314,6 +314,10 @@ def coerce(fieldname, value):
 		return getdate(value)
 	if fieldtype == "Datetime":
 		return get_datetime(value)
+	if fieldname in ("student_mobile_number", "mobile_number", "mobile_no") or fieldtype == "Phone":
+		from campus.campus_platform.sanitize import clean_mobile_number
+
+		return clean_mobile_number(value)
 	return cstr(value).strip()
 
 

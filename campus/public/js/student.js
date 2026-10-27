@@ -44,8 +44,36 @@ function confirm_joining(frm) {
 	dialog.show();
 }
 
+// BUG-07: Clean link-query for Guardian field in guardians child table.
+// Prevents upstream education bug where empty/undefined guardian_list produced "Filtered by: Name is not one of ."
+function setup_guardians_filter(frm) {
+	if (!frm.fields_dict.guardians || !frm.fields_dict.guardians.grid) return;
+
+	const filter_fn = function (doc, cdt, cdn) {
+		const already_selected = (doc.guardians || [])
+			.filter((d) => (!cdn || d.name !== cdn) && Boolean(d.guardian))
+			.map((d) => d.guardian);
+
+		const filters = {};
+		if (already_selected.length > 0) {
+			filters["name"] = ["not in", already_selected];
+		}
+		return { filters: filters };
+	};
+
+	frm.set_query("guardian", "guardians", filter_fn);
+	const grid = frm.fields_dict.guardians.grid;
+	if (grid.get_field("guardian")) {
+		grid.get_field("guardian").get_query = filter_fn;
+	}
+}
+
 frappe.ui.form.on("Student", {
+	onload(frm) {
+		setup_guardians_filter(frm);
+	},
 	refresh(frm) {
+		setup_guardians_filter(frm);
 		if (frm.is_new()) return;
 		const officer =
 			frappe.user.has_role("Admission Officer") || frappe.session.user === "Administrator";
@@ -89,5 +117,14 @@ frappe.ui.form.on("Student", {
 			},
 			__("Create")
 		);
+	},
+});
+
+frappe.ui.form.on("Student Guardian", {
+	form_render(frm) {
+		setup_guardians_filter(frm);
+	},
+	guardians_add(frm) {
+		setup_guardians_filter(frm);
 	},
 });

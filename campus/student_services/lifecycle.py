@@ -270,9 +270,16 @@ def source_ref(source):
 # Student hooks
 
 
+def validate_guardians(doc):
+	guardians = [row.get("guardian") for row in (doc.get("guardians") or []) if row.get("guardian")]
+	if len(guardians) != len(set(guardians)):
+		frappe.throw(_("Duplicate guardians are not allowed."))
+
+
 def validate_student(doc, method=None):
 	"""A new Student starts in a status the table permits from blank and not detained; afterwards a save never
 	changes either (the lifecycle service and the Progression Run write them)."""
+	validate_guardians(doc)
 	if doc.is_new():
 		doc.set(FIELD, doc.get(FIELD) or rules.ACTIVE)
 		problem = rules.refusal(permitted_moves(), rules.NEW, doc.get(FIELD), None, None)
