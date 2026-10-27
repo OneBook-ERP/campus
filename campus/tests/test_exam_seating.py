@@ -125,6 +125,15 @@ class TestExamHall(SeatingFixture):
 		with self.assertRaisesRegex(frappe.ValidationError, "twice"):
 			make_room("Seat Hall Y", 2, 2, [(1, 1), (1, 1)])
 
+	def test_seating_plan_hall_auto_fetches_layout_and_capacity(self):
+		meta = frappe.get_meta("Seating Plan Hall")
+		self.assertEqual(meta.get_field("seat_rows").fetch_from, "room.oc_seat_rows")
+		self.assertEqual(meta.get_field("seat_columns").fetch_from, "room.oc_seat_columns")
+		self.assertEqual(meta.get_field("capacity").fetch_from, "room.seating_capacity")
+		plan = make_plan(self.session, DAY1, "FN", [self.rooms["Seat Hall A"]])
+		hall = plan.halls[0]
+		self.assertEqual((hall.seat_rows, hall.seat_columns, hall.capacity), (3, 4, 11))
+
 
 class TestSeatingPlan(SeatingFixture):
 	def test_issued_students_are_seated_interleaved_and_never_on_blocked_seats(self):  # AC1
