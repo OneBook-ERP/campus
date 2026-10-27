@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Role guides and UAT scripts
+    url: https://github.com/OneBook-ERP/campus/tree/develop/docs/usage
+    about: Check the role guide for your flow before filing a bug.

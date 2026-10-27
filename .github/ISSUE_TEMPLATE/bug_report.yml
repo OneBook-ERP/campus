@@ -1,0 +1,79 @@
+name: Bug report
+description: Something in OneBook Campus does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use synthetic data only: no real student names, Aadhaar numbers, phone numbers or screenshots of real records.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Admissions
+        - Academics / enrollment
+        - Curriculum / outcomes
+        - Examinations
+        - Fees and finance
+        - Faculty / HR leave / attendance
+        - Student services / portal
+        - Platform (approvals, navigation, permissions)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Site and version
+      description: Site name, and the campus commit (Help > About, or `git -C apps/campus rev-parse --short HEAD`). Add the MariaDB version for database errors.
+      placeholder: "campus.localhost, campus a1b2c3d, MariaDB 11.8.6"
+    validations:
+      required: true
+  - type: input
+    id: role
+    attributes:
+      label: Logged in as (role)
+      placeholder: "Admission Officer"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps from a known starting point, with the record names you used.
+      placeholder: |
+        1. Open Fees and Finance > Fee Schedule > New
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the exact error message.
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Traceback
+      description: For server errors, the full traceback (error dialog > Show details, or Error Log).
+      render: python
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - Blocks a UAT step or the demo
+        - Wrong data or numbers
+        - Confusing, but there is a workaround
+        - Cosmetic
+    validations:
+      required: true
