@@ -382,6 +382,21 @@ class TestAdmit(AdmitTestCase):
 		)
 		self.assertFalse(frappe.db.exists("Student", {"student_applicant": applicant}))
 
+	def test_upstream_enroll_student_is_refused_and_creates_nothing(self):
+		"""Refuse Education's enroll_student mapper override and leave Student and Program Enrollment untouched."""
+		from frappe.model.mapper import make_mapped_doc
+
+		applicant = self.applicant()
+		before = self.counts()
+		self.assertEqual(
+			frappe.override_whitelisted_method("education.education.api.enroll_student"),
+			"campus.admissions.api.enroll_student",
+		)
+		with self.assertRaisesRegex(frappe.ValidationError, "Use Admit, then Confirm Joining"):
+			make_mapped_doc("education.education.api.enroll_student", applicant)
+		self.assertEqual(self.counts(), before)
+		self.assertFalse(frappe.db.exists("Student", {"student_applicant": applicant}))
+
 
 class TestJoining(AdmitTestCase):
 	"""M04-09: the joining confirmation makes the enrollment, ID, invoice and attendance start, once per applicant."""

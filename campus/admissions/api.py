@@ -1,6 +1,7 @@
 """M04 Admissions service API. Other modules call these, never the controllers (D7)."""
 
 import frappe
+from frappe import _
 
 from campus.admissions import admit as admission
 from campus.admissions import documents, eligibility, enquiry, joining
@@ -95,3 +96,9 @@ def convert_lead_to_applicant(lead: str, academic_year: str | None = None):
 	Idempotent: a second call returns the existing applicant's name. The academic year defaults to the current one.
 	"""
 	return enquiry.convert_lead_to_applicant(lead, academic_year)
+
+
+@frappe.whitelist()
+def enroll_student(source_name: str):
+	"""Refuse Education's one-step Enroll (M04-01 / M04-09): campus admissions go through Admit, then Confirm Joining."""
+	frappe.throw(_("Use Admit, then Confirm Joining."))
