@@ -34,13 +34,65 @@ def hidden_workspaces(user):
 		roles = set(frappe.get_all("Module Pack Role", filters={"parent": pack}, pluck="role"))
 		if (roles and not roles & user_roles) or not any(pack_enabled(c, pack) for c in companies):
 			hidden.update(workspaces)
+	# Education workspace is replaced by Campus workspaces for pilot roles
+	hidden.add("Education")
 	return hidden
+
+
+DISALLOWED_PILOT_NAV_DOCTYPES = {
+	"Assessment Plan",
+	"Assessment Result",
+	"Assessment Result Tool",
+}
 
 
 def boot_session(bootinfo):
 	hidden = hidden_workspaces(frappe.session.user)
 	if hidden:
 		filter_bootinfo(bootinfo, hidden)
+	filter_pilot_links(bootinfo)
+
+
+def filter_pilot_links(bootinfo):
+	"""Pilot roles must not reach Assessment Plan / Assessment Result from workspace navigation."""
+	user = frappe.session.user
+	if user == "Administrator" or "System Manager" in frappe.get_roles(user):
+		return
+
+	# Strip from module sidebars
+	for sidebar in (bootinfo.get("module_sidebars") or {}).values():
+		if "items" in sidebar:
+			sidebar["items"] = [
+				i
+				for i in sidebar["items"]
+				if i.get("link_to") not in DISALLOWED_PILOT_NAV_DOCTYPES
+				and i.get("label") not in DISALLOWED_PILOT_NAV_DOCTYPES
+			]
+
+	# Strip from desktop icons
+	if "desktop_icons" in bootinfo:
+		bootinfo["desktop_icons"] = [
+			i for i in bootinfo["desktop_icons"]
+			if i.get("link_to") not in DISALLOWED_PILOT_NAV_DOCTYPES
+		]
+
+	# Strip from workspace pages
+	workspaces = bootinfo.get("workspaces") or {}
+	for page in workspaces.get("pages") or []:
+		if "links" in page and isinstance(page["links"], list):
+			page["links"] = [
+				lnk
+				for lnk in page["links"]
+				if lnk.get("link_to") not in DISALLOWED_PILOT_NAV_DOCTYPES
+				and lnk.get("label") not in DISALLOWED_PILOT_NAV_DOCTYPES
+			]
+		if "shortcuts" in page and isinstance(page["shortcuts"], list):
+			page["shortcuts"] = [
+				sc
+				for sc in page["shortcuts"]
+				if sc.get("link_to") not in DISALLOWED_PILOT_NAV_DOCTYPES
+				and sc.get("label") not in DISALLOWED_PILOT_NAV_DOCTYPES
+			]
 
 
 def filter_bootinfo(bootinfo, hidden):

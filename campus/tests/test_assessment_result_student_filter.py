@@ -154,3 +154,91 @@ class TestAssessmentResultStudentFilter(IntegrationTestCase):
 		# Row 2: Student Group & Student
 		self.assertEqual(col1[1], "student_group")
 		self.assertEqual(col2[1], "student")
+
+	def test_boot_session_hides_education_and_assessment_links_for_pilot_roles(self):
+		from campus.campus_platform.pack_visibility import (
+			boot_session,
+			hidden_workspaces,
+		)
+
+		test_user = "pilot_test_user@example.com"
+		if not frappe.db.exists("User", test_user):
+			frappe.get_doc(
+				{
+					"doctype": "User",
+					"email": test_user,
+					"first_name": "Pilot",
+					"roles": [{"role": "Academics User"}],
+				}
+			).insert(ignore_permissions=True)
+
+		self.addCleanup(frappe.set_user, "Administrator")
+
+		# Admin sees everything
+		frappe.set_user("Administrator")
+		self.assertNotIn("Education", hidden_workspaces("Administrator"))
+
+		# Pilot user has Education in hidden_workspaces
+		frappe.set_user(test_user)
+		self.assertIn("Education", hidden_workspaces(test_user))
+
+		# boot_session strips Education from pages and strips Assessment links from sidebars and pages
+		bootinfo = frappe._dict(
+			workspaces={
+				"pages": [
+					{
+						"name": "Education",
+						"links": [{"link_to": "Assessment Result"}, {"link_to": "Course"}],
+						"shortcuts": [{"link_to": "Assessment Plan"}, {"link_to": "Student"}],
+					},
+					{
+						"name": "Examinations",
+						"links": [{"link_to": "Mark Sheet Entry"}],
+						"shortcuts": [{"link_to": "Exam Session"}],
+					},
+				],
+				"private_pages": [],
+			},
+			module_sidebars={
+				"Education": {
+					"module": "Education",
+					"workspaces": ["Education"],
+					"items": [
+						{"type": "Link", "link_to": "Assessment Result", "label": "Assessment Result"},
+						{"type": "Link", "link_to": "Assessment Plan", "label": "Assessment Plan"},
+						{"type": "Link", "link_to": "Course", "label": "Course"},
+					],
+				},
+				"Examinations": {
+					"module": "Examinations",
+					"workspaces": ["Examinations"],
+					"items": [
+						{"type": "Link", "link_to": "Mark Sheet Entry", "label": "Mark Sheet Entry"},
+					],
+				},
+			},
+			desktop_icons=[
+				{"link_to": "Assessment Result"},
+				{"link_to": "Mark Sheet Entry"},
+			],
+			dock={"campus": []},
+			app_data=[],
+		)
+
+		boot_session(bootinfo)
+
+		# Education workspace removed from pages
+		page_names = [p["name"] for p in bootinfo.workspaces["pages"]]
+		self.assertNotIn("Education", page_names)
+		self.assertIn("Examinations", page_names)
+
+		# Assessment links stripped from desktop_icons
+		icon_links = [i["link_to"] for i in bootinfo.desktop_icons]
+		self.assertNotIn("Assessment Result", icon_links)
+		self.assertIn("Mark Sheet Entry", icon_links)
+
+		# Assessment links stripped from any remaining sidebars
+		for sidebar in bootinfo.module_sidebars.values():
+			items = [i.get("link_to") for i in sidebar.get("items", [])]
+			self.assertNotIn("Assessment Result", items)
+			self.assertNotIn("Assessment Plan", items)
