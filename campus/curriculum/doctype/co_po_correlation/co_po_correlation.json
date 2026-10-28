@@ -17,6 +17,7 @@
    "fieldtype": "Link",
    "label": "Course Outcome",
    "options": "Course Outcome",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -32,6 +33,7 @@
    "fieldtype": "Select",
    "label": "Outcome Type",
    "options": "Program Outcome\nProgram Specific Outcome",
+   "read_only": 1,
    "reqd": 1,
    "default": "Program Outcome"
   },
@@ -40,6 +42,7 @@
    "fieldtype": "Dynamic Link",
    "label": "Outcome",
    "options": "outcome_type",
+   "read_only": 1,
    "reqd": 1
   },
   {

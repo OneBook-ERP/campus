@@ -60,6 +60,9 @@ class TestDemoData(IntegrationTestCase):
 		self.assertEqual(self.count("Student", oc_company=COLLEGE, oc_academic_status="Admitted"), 6)
 		self.assertEqual(self.count("Instructor", oc_company=COLLEGE), 18)
 		self.assertEqual(self.count("Curriculum", company=COLLEGE, status="Effective"), 6)
+		self.assertEqual(self.count("Program Outcome", company=COLLEGE), 72)
+		self.assertEqual(self.count("Program Specific Outcome", company=COLLEGE), 12)
+		self.assertEqual(self.count("Course Outcome", company=COLLEGE), 324)
 		self.assertEqual(self.count("Exam Session", company=COLLEGE, status="Published"), 2)
 		self.assertEqual(self.count("Student Result", company=COLLEGE, is_latest=1), 240)
 
@@ -216,6 +219,37 @@ class TestDemoShape(IntegrationTestCase):
 			check_kit(ctx)
 		except frappe.ValidationError as error:
 			self.assertNotIn("default company", str(error))
+
+	def test_the_curriculum_step_seeds_outcomes_once_and_fills_a_matrix_grid(self):
+		"""The curriculum step seeds 12 NBA POs, 2 PSOs per programme, and COs for the demo courses idempotently."""
+		programmes = [p["name"] for p in PROFILE["programmes"]]
+		curricula = frappe.get_all("Curriculum", {"company": COLLEGE}, pluck="name")
+		for matrix_name in frappe.get_all("CO-PO Matrix", {"company": COLLEGE}, pluck="name"):
+			frappe.delete_doc("CO-PO Matrix", matrix_name, force=True)
+		if curricula:
+			frappe.db.delete("Course Outcome", {"curriculum": ["in", curricula]})
+		frappe.db.delete("Program Specific Outcome", {"program": ["in", programmes]})
+		frappe.db.delete("Program Outcome", {"program": ["in", programmes]})
+		first_ctx = Context(PROFILE, 2026)
+		run_steps(first_ctx, ["curriculum"])
+		self.assertEqual(first_ctx.out.as_dict()["created"]["Program Outcome"], 72)
+		self.assertEqual(first_ctx.out.as_dict()["created"]["Program Specific Outcome"], 12)
+		self.assertEqual(first_ctx.out.as_dict()["created"]["Course Outcome"], 324)
+		second_ctx = Context(PROFILE, 2026)
+		run_steps(second_ctx, ["curriculum"])
+		self.assertEqual(second_ctx.out.as_dict()["created"], {})
+		self.assertEqual(second_ctx.out.as_dict()["updated"], {})
+		curriculum = frappe.db.get_value(
+			"Curriculum", {"company": COLLEGE, "program": "B.E. CSE", "status": "Effective"}
+		)
+		matrix = frappe.get_doc(
+			{"doctype": "CO-PO Matrix", "course": "Discrete Mathematics", "curriculum": curriculum}
+		).insert()
+		self.assertEqual(len(matrix.correlations), 42)
+		matrix.correlations[0].correlation = 3
+		matrix.save()
+		matrix.reload()
+		self.assertEqual(matrix.correlations[0].correlation, 3)
 
 	def test_attendance_and_leave_go_through_the_real_documents(self):
 		self.require_loaded_demo()

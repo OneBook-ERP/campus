@@ -5,8 +5,19 @@ its real course names, the rest are generic programme courses (the point is the 
 import frappe
 
 from campus.campus_platform.doctype.regulation.regulation import regulation_name
+from campus.curriculum.outcomes import seed_program_outcomes
 
 THEORY, PRACTICAL = "Theory", "Practical"
+OUTCOME_SEMESTERS = (1, 2, 3)
+PSO_TEMPLATES = (
+	("PSO1", "Apply core {name} principles to analyse, design, and build domain-specific engineering systems."),
+	("PSO2", "Use modern engineering tools and practices to solve real-world {name} problems."),
+)  # fmt: skip
+CO_TEMPLATES = (
+	("CO1", "Understand", "Explain the foundational concepts and principles of {course}."),
+	("CO2", "Apply", "Apply core methods and techniques of {course} to solve engineering problems."),
+	("CO3", "Analyse", "Analyse practical scenarios and evaluate solutions in {course}."),
+)  # fmt: skip
 # title, category, L, T, P, exam type. Credits at the R2022 rates (L 1, T 1, P 0.5): 3-1-0 = 4, 3-0-2 = 4, 3-0-0 = 3, 0-0-4 = 2.
 COMMON = {
 	1: [
@@ -46,13 +57,15 @@ def semester_courses(abbr, semester):
 
 
 def load(ctx):
-	"""Make the courses and the curriculum of every programme Effective, in the regulation of the profile."""
+	"""Make the courses, the Effective curriculum, and the OBE outcomes (POs, PSOs, COs) of every programme."""
 	regulation = regulation_name(ctx.profile["regulation"]["code"], ctx.college)
 	for programme in ctx.profile["programmes"]:
-		ensure_curriculum(ctx, programme, regulation)
+		curriculum = ensure_curriculum(ctx, programme, regulation)
+		ensure_outcomes(ctx, programme, regulation, curriculum)
 
 
 def ensure_curriculum(ctx, programme, regulation):
+	"""Create the 8-semester Effective curriculum of `programme` under `regulation` when missing."""
 	existing = frappe.db.get_value(
 		"Curriculum", {"program": programme["name"], "regulation": regulation, "version": 1}
 	)
@@ -88,3 +101,55 @@ def ensure_curriculum(ctx, programme, regulation):
 		doc.save(ignore_permissions=True)
 	ctx.out.created["Curriculum"] += 1
 	return doc.name
+
+
+def ensure_outcomes(ctx, programme, regulation, curriculum):
+	"""Seed the 12 NBA POs, sample PSOs, and COs for the demo courses of `programme` under `regulation`."""
+	created_pos = seed_program_outcomes(programme["name"], regulation)
+	if created_pos:
+		ctx.out.created["Program Outcome"] += len(created_pos)
+	existing_psos = set(
+		frappe.get_all(
+			"Program Specific Outcome",
+			{"program": programme["name"], "regulation": regulation},
+			pluck="pso_code",
+		)
+	)
+	for code, template in PSO_TEMPLATES:
+		if code in existing_psos:
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "Program Specific Outcome",
+				"program": programme["name"],
+				"regulation": regulation,
+				"pso_code": code,
+				"statement": template.format(name=programme["name"]),
+			}
+		).insert(ignore_permissions=True)
+		ctx.out.created["Program Specific Outcome"] += 1
+	existing_cos = {
+		(row.course, row.co_code)
+		for row in frappe.get_all("Course Outcome", {"curriculum": curriculum}, ["course", "co_code"])
+	}
+	courses = frappe.get_all(
+		"Curriculum Course",
+		{"parent": curriculum, "parenttype": "Curriculum", "semester": ["in", OUTCOME_SEMESTERS]},
+		pluck="course",
+		order_by="idx",
+	)
+	for course in courses:
+		for code, bloom_level, template in CO_TEMPLATES:
+			if (course, code) in existing_cos:
+				continue
+			frappe.get_doc(
+				{
+					"doctype": "Course Outcome",
+					"course": course,
+					"curriculum": curriculum,
+					"co_code": code,
+					"bloom_level": bloom_level,
+					"statement": template.format(course=course),
+				}
+			).insert(ignore_permissions=True)
+			ctx.out.created["Course Outcome"] += 1

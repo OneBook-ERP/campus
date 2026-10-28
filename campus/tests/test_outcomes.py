@@ -244,6 +244,21 @@ class TestOutcomes(CampusTestCase):
 			self.matrix()
 		self.assertTrue(self.matrix(self.c26).name)
 
+	def test_saving_a_matrix_without_course_or_programme_outcomes_is_refused(self):
+		"""Saving a matrix fails with a clear setup message when COs or POs / PSOs are missing, and only correlation is editable."""
+		with self.assertRaisesRegex(frappe.ValidationError, "Define the course outcomes"):
+			frappe.get_doc(
+				{"doctype": "CO-PO Matrix", "course": OTHER_COURSE, "curriculum": self.c22}
+			).insert()
+		frappe.db.delete("Program Outcome", {"program": PROGRAM, "regulation": self.r26})
+		frappe.db.delete("Program Specific Outcome", {"program": PROGRAM, "regulation": self.r26})
+		with self.assertRaisesRegex(frappe.ValidationError, "Define the programme outcomes"):
+			frappe.get_doc({"doctype": "CO-PO Matrix", "course": COURSE, "curriculum": self.c26}).insert()
+		meta = frappe.get_meta("CO-PO Correlation")
+		for fieldname in ("course_outcome", "co_code", "outcome_type", "outcome", "outcome_code"):
+			self.assertEqual(meta.get_field(fieldname).read_only, 1, fieldname)
+		self.assertEqual(meta.get_field("correlation").read_only, 0)
+
 	def test_a_matrix_with_a_co_that_maps_to_nothing_cannot_be_approved(self):  # AC1
 		doc = self.matrix(mapped={("CO1", "PO1"): 3, ("CO2", "PO2"): 2})
 		with self.assertRaisesRegex(frappe.ValidationError, "CO3"):
