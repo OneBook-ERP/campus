@@ -273,6 +273,7 @@ class TestNavigation(CampusTestCase):
 			)
 
 	def test_workspace_doctype_slug_collisions_use_explicit_list_view(self):
+		"""Verify workspace shortcuts whose target DocType matches the workspace name set doc_view='List'."""
 		self.assertIn("/assets/campus/js/navigation.js", frappe.get_hooks("app_include_js", app_name="campus"))
 		collisions = {w.name for w in campus_workspaces() if frappe.db.exists("DocType", w.name)}
 		self.assertIn("Hostel", collisions)

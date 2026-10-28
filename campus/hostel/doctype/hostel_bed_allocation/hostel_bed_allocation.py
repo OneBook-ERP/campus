@@ -7,6 +7,7 @@ from frappe.utils import add_days, flt, getdate, nowdate, today
 
 from campus.campus_finance.fee_heads import HOSTEL
 from campus.campus_finance.invoices import DUE_DAYS, check_fee_invoice, raise_fee_invoice
+from campus.campus_platform.company_scope import check_company_permitted
 from campus.hostel.api import fee_rate, validate_allotment
 from campus.student_services import lifecycle_rules as rules
 from campus.student_services.onboarding import mark_item_done
@@ -17,31 +18,43 @@ SIDE_EXIT_STATUSES = (rules.ON_BREAK, rules.WITHDRAWN, rules.DISCONTINUED, rules
 
 
 class HostelBedAllocation(Document):
+	"""Row-locked hostel bed allocation for a student in an academic year."""
+
 	@property
 	def end_date(self):
+		"""Alias for `to_date` used by lifecycle teardown callers."""
 		return self.to_date
 
 	@end_date.setter
 	def end_date(self, value):
+		"""Set `to_date` when `end_date` is assigned."""
 		self.to_date = value
 
 	def validate(self):
+		"""Lock the student and bed rows, derive room/hostel/company, and validate eligibility and rates."""
 		self.status = self.status or ACTIVE
 		self.from_date = self.from_date or today()
 		if self.to_date and getdate(self.to_date) < getdate(self.from_date):
 			frappe.throw(_("To Date cannot be before From Date"))
 
+		student_status = frappe.db.get_value(
+			"Student", self.student, "oc_academic_status", for_update=True
+		)
 		bed_row = lock_bed(self.bed)
 		self.room = bed_row.room
 		self.hostel = bed_row.hostel
 		self.company = bed_row.company
+		check_company_permitted(self.company)
+		if self.is_new() and not getattr(self.flags, "skip_fee_invoice", False):
+			self.sales_invoice = None
 
 		if self.status == ACTIVE:
-			self._validate_active_allocation(bed_row)
+			self._validate_active_allocation(bed_row, student_status=student_status)
 		elif self.status == VACATED and not self.to_date:
 			self.to_date = today()
 
-	def _validate_active_allocation(self, bed_row):
+	def _validate_active_allocation(self, bed_row, student_status=None):
+		"""Verify the bed and room are available, the student is eligible, and a fee rate exists."""
 		if not bed_row.is_active:
 			frappe.throw(_("Hostel Bed {0} is not active").format(self.bed))
 		room = frappe.db.get_value(
@@ -53,7 +66,10 @@ class HostelBedAllocation(Document):
 			)
 
 		validate_allotment(bed_row.hostel, self.student)
-		student_status = frappe.db.get_value("Student", self.student, "oc_academic_status")
+		if student_status is None:
+			student_status = frappe.db.get_value(
+				"Student", self.student, "oc_academic_status", for_update=True
+			)
 		if student_status in SIDE_EXIT_STATUSES:
 			frappe.throw(
 				_("Student {0} is {1} and cannot be allocated a hostel bed").format(
@@ -67,16 +83,18 @@ class HostelBedAllocation(Document):
 			positive_rates(self.company, self.academic_year, room.room_type, getattr(self, "_fee_amount", None))
 
 	def after_insert(self):
+		"""Occupy the bed, mark the student as a hostel resident, tick onboarding, and raise the invoice."""
 		if self.status != ACTIVE:
 			return
 		occupy_bed(self.bed, self.student)
 		frappe.db.set_value("Student", self.student, "oc_hostel_resident", 1, update_modified=False)
 		mark_item_done(self.student, "HOSTEL")
-		if not self.sales_invoice and not getattr(self.flags, "skip_fee_invoice", False):
+		if not getattr(self.flags, "skip_fee_invoice", False):
 			invoice = raise_hostel_invoice(self)
 			self.db_set("sales_invoice", invoice.name, update_modified=False)
 
 	def on_update(self):
+		"""Synchronise bed occupancy and the student's hostel resident flag when status changes."""
 		if self.status == ACTIVE:
 			occupy_bed(self.bed, self.student)
 			refresh_student_resident_flag(self.student)
@@ -85,8 +103,9 @@ class HostelBedAllocation(Document):
 			refresh_student_resident_flag(self.student)
 
 	def on_trash(self):
+		"""Free the bed and refresh the student's resident flag excluding the deleted allocation."""
 		release_bed_if_vacated(self.bed, self.student, exclude_name=self.name)
-		refresh_student_resident_flag(self.student)
+		refresh_student_resident_flag(self.student, exclude_name=self.name)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -202,6 +221,7 @@ def check_student_unallocated(student, exclude_name=None):
 
 
 def occupy_bed(bed, student):
+	"""Mark `bed` as occupied by `student`."""
 	frappe.db.set_value(
 		"Hostel Bed",
 		bed,
@@ -211,6 +231,7 @@ def occupy_bed(bed, student):
 
 
 def release_bed_if_vacated(bed, student, exclude_name=None):
+	"""Free `bed` if no other active allocation remains on it."""
 	if not bed or not frappe.db.exists("Hostel Bed", bed):
 		return
 	alloc = frappe.qb.DocType("Hostel Bed Allocation")
@@ -232,21 +253,25 @@ def release_bed_if_vacated(bed, student, exclude_name=None):
 		)
 
 
-def refresh_student_resident_flag(student):
+def refresh_student_resident_flag(student, exclude_name=None):
+	"""Update `Student.oc_hostel_resident` from remaining active allocations, optionally excluding one row."""
 	if not student or not frappe.db.exists("Student", student):
 		return
-	has_active = bool(
-		frappe.db.exists("Hostel Bed Allocation", {"student": student, "status": ACTIVE})
-	)
+	filters = {"student": student, "status": ACTIVE}
+	if exclude_name:
+		filters["name"] = ["!=", exclude_name]
+	has_active = bool(frappe.db.exists("Hostel Bed Allocation", filters))
 	frappe.db.set_value("Student", student, "oc_hostel_resident", int(has_active), update_modified=False)
 
 
 def hostel_fee_category(company):
+	"""Return the configured hostel fee category for `company`, defaulting to `Hostel`."""
 	configured = frappe.db.get_value("Hostel Settings", {"company": company}, "hostel_fee_category")
 	return configured or HOSTEL
 
 
 def positive_rates(company, academic_year, room_type, override_amount=None):
+	"""Resolve positive fee rates for `(company, academic_year, room_type)` or throw if none exist."""
 	rates = {
 		head: flt(amount)
 		for head, amount in fee_rate(company, academic_year, room_type).items()

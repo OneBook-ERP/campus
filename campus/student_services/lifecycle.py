@@ -219,6 +219,7 @@ def write(
 	program_enrollment,
 	reverses=None,
 ):
+	"""Update the student's lifecycle status, log the transition, and run side-exit teardown when applicable."""
 	frappe.db.set_value("Student", student, FIELD, to_status)
 	log = insert_log(
 		student, current.company, current.status, to_status, effective, kind, reason, source, approved_by,

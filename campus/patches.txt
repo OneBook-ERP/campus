@@ -47,3 +47,4 @@ campus.patches.narrow_officer_rights
 campus.patches.retire_fee_collection_role
 campus.patches.backfill_curriculum_company
 campus.patches.clean_student_mobile_numbers
+campus.patches.link_transport_workspace

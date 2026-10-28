@@ -6,6 +6,14 @@ campus.navigation.collides_with_workspace = function (slug) {
 };
 
 if (frappe.router) {
+	const _begins_with_shell = frappe.router.begins_with_shell;
+	frappe.router.begins_with_shell = function (route) {
+		if (route?.length > 1 && campus.navigation.collides_with_workspace(route[0])) {
+			return false;
+		}
+		return _begins_with_shell.call(this, route);
+	};
+
 	const _convert_to_standard_route = frappe.router.convert_to_standard_route;
 	frappe.router.convert_to_standard_route = async function (route) {
 		if (route?.length > 1 && campus.navigation.collides_with_workspace(route[0])) {

@@ -7,7 +7,10 @@ from frappe.utils import cint, flt
 
 
 class TransportRoute(Document):
+	"""Bus route owned by a transport provider company with stops and seat capacity."""
+
 	def validate(self):
+		"""Verify provider agreement, positive seat capacity, unique stop names, and active occupancy bounds."""
 		if self.is_new() and not frappe.db.exists(
 			"Shared Service Agreement", {"provider_company": self.company, "service": "Transport"}
 		):

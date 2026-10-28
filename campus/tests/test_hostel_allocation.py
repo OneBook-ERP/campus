@@ -26,13 +26,17 @@ FIXTURE_STUDENT = "EDU-STU-00001"
 
 
 def ensure_gender(name):
+	"""Ensure the `Gender` record `name` exists for test fixtures."""
 	if not frappe.db.exists("Gender", name):
 		frappe.get_doc({"doctype": "Gender", "gender": name}).insert()
 
 
 class TestHostelAllocation(CampusTestCase):
+	"""Integration tests for M10-02 Hostel Bed Allocation and side-exit lifecycle cleanup."""
+
 	@classmethod
 	def setUpClass(cls):
+		"""Seed finance companies, genders, and academic year once for the suite."""
 		super().setUpClass()
 		make_finance_company(TRUST, "HATT")
 		make_finance_company(COLLEGE_A, "HACA")
@@ -50,6 +54,7 @@ class TestHostelAllocation(CampusTestCase):
 			).insert()
 
 	def setUp(self):
+		"""Create a savepoint and seed a Hostel Shared Service Agreement, hostel, room, beds, and fee rate."""
 		frappe.db.savepoint("hostel_allocation_test")
 		self.addCleanup(frappe.db.rollback, save_point="hostel_allocation_test")
 		self.agreement = frappe.get_doc(
@@ -82,6 +87,7 @@ class TestHostelAllocation(CampusTestCase):
 		).insert()
 
 	def make_room(self, hostel, floor_name, room_no, room_type="Double"):
+		"""Create or reuse a block, floor, room type, and hostel room for `hostel`."""
 		block_name = f"B-{floor_name}"
 		block_id = f"{hostel.name}-{block_name}"
 		if not frappe.db.exists("Hostel Block", block_id):
@@ -100,6 +106,7 @@ class TestHostelAllocation(CampusTestCase):
 		).insert()
 
 	def make_student(self, first_name, company=COLLEGE_A, gender="Male", name=None):
+		"""Create or reset a Student fixture in `company` with `gender`."""
 		if name and frappe.db.exists("Student", name):
 			frappe.db.set_value(
 				"Student",
@@ -127,6 +134,7 @@ class TestHostelAllocation(CampusTestCase):
 		return doc
 
 	def test_allocate_bed_creates_allocation_occupies_bed_and_raises_trust_invoice(self):
+		"""Verify `allocate_bed` occupies the bed, sets resident flag, and submits a Trust Sales Invoice."""
 		student = self.make_student("FixtureStu", name=FIXTURE_STUDENT)
 		bed = self.beds[0]
 
@@ -150,13 +158,18 @@ class TestHostelAllocation(CampusTestCase):
 		self.assertEqual(invoice.student, student.name)
 		self.assertEqual(flt(invoice.grand_total), 45000.0)
 
+		allocation.delete()
+		self.assertEqual(frappe.db.get_value("Student", student.name, "oc_hostel_resident"), 0)
+
 	def test_allocate_bed_acquires_mariadb_row_lock(self):
+		"""Verify `allocate_bed` locks `Student`, `Hostel Bed`, and `Hostel Bed Allocation` rows with `FOR UPDATE`."""
 		student = self.make_student("RowLockStu")
 		bed = self.beds[0]
 		locked_calls = []
 		real_get_value = frappe.db.get_value
 
 		def spy_get_value(*args, **kwargs):
+			"""Record `frappe.db.get_value` calls made with `for_update=True`."""
 			if kwargs.get("for_update"):
 				locked_calls.append(args[:2])
 			return real_get_value(*args, **kwargs)
@@ -167,6 +180,7 @@ class TestHostelAllocation(CampusTestCase):
 		):
 			allocate_bed(student.name, bed, YEAR)
 
+		self.assertIn(("Student", student.name), locked_calls)
 		self.assertIn(("Hostel Bed", bed), locked_calls)
 		self.assertTrue(
 			any(
@@ -176,6 +190,7 @@ class TestHostelAllocation(CampusTestCase):
 		)
 
 	def test_allocate_bed_checks_gender_and_shared_service_agreement(self):
+		"""Verify `allocate_bed` enforces gender matching and active `Shared Service Agreement` coverage."""
 		girl = self.make_student("GirlStu", company=COLLEGE_A, gender="Female")
 		outsider = self.make_student("OutsiderStu", company=OUTSIDER, gender="Male")
 
@@ -191,6 +206,7 @@ class TestHostelAllocation(CampusTestCase):
 			allocate_bed(boy.name, self.beds[0], YEAR)
 
 	def test_allocate_bed_refuses_occupied_bed_duplicate_student_and_deactivating_occupied_bed(self):
+		"""Verify occupied beds, duplicate active student allocations, and bed deactivation are rejected."""
 		first = self.make_student("FirstBoy")
 		second = self.make_student("SecondBoy")
 		allocate_bed(first.name, self.beds[0], YEAR)
@@ -207,6 +223,7 @@ class TestHostelAllocation(CampusTestCase):
 			bed_doc.save()
 
 	def test_side_exit_transitions_set_end_date_and_free_bed(self):
+		"""Verify side-exit lifecycle transitions vacate the allocation, set `to_date`, and free the bed."""
 		exit_date = add_days(today(), 5)
 		for idx, exit_status in enumerate(
 			(rules.ON_BREAK, rules.WITHDRAWN, rules.DISCONTINUED, rules.CANCELLED)

@@ -28,13 +28,17 @@ FIXTURE_STUDENT = "EDU-STU-00001"
 
 
 def ensure_gender(name):
+	"""Ensure the `Gender` record `name` exists for test fixtures."""
 	if not frappe.db.exists("Gender", name):
 		frappe.get_doc({"doctype": "Gender", "gender": name}).insert()
 
 
 class TestTransportAllocation(CampusTestCase):
+	"""Integration tests for M11-02 Transport Allocation, hostel/bus branching, and side-exit cleanup."""
+
 	@classmethod
 	def setUpClass(cls):
+		"""Seed finance companies, genders, and academic year once for the suite."""
 		super().setUpClass()
 		make_finance_company(TRUST, "TATT")
 		make_finance_company(COLLEGE_A, "TACA")
@@ -52,6 +56,7 @@ class TestTransportAllocation(CampusTestCase):
 			).insert()
 
 	def setUp(self):
+		"""Create a savepoint and seed a Transport Shared Service Agreement and route with stops."""
 		frappe.db.savepoint("transport_allocation_test")
 		self.addCleanup(frappe.db.rollback, save_point="transport_allocation_test")
 		self.transport_agreement = frappe.get_doc(
@@ -78,6 +83,7 @@ class TestTransportAllocation(CampusTestCase):
 		).insert()
 
 	def make_student(self, first_name, company=COLLEGE_A, gender="Male", name=None):
+		"""Create or reset a Student fixture in `company` with `gender`."""
 		if name and frappe.db.exists("Student", name):
 			frappe.db.set_value(
 				"Student",
@@ -106,6 +112,7 @@ class TestTransportAllocation(CampusTestCase):
 		return doc
 
 	def test_allocate_seat_creates_allocation_increments_occupancy_and_raises_trust_invoice(self):
+		"""Verify `allocate_seat` increments route occupancy, sets transport flag, and submits a Trust Sales Invoice."""
 		student = self.make_student("FixtureBusStu", name=FIXTURE_STUDENT)
 
 		allocation = allocate_seat(student.name, self.route.name, "Tambaram", academic_year=YEAR)
@@ -129,12 +136,17 @@ class TestTransportAllocation(CampusTestCase):
 		self.assertEqual(invoice.student, student.name)
 		self.assertEqual(flt(invoice.grand_total), 22000.0)
 
+		allocation.delete()
+		self.assertEqual(frappe.db.get_value("Student", student.name, "oc_transport_user"), 0)
+
 	def test_allocate_seat_acquires_mariadb_row_lock(self):
+		"""Verify `allocate_seat` locks `Student`, `Transport Route`, and `Transport Allocation` rows with `FOR UPDATE`."""
 		student = self.make_student("BusLockStu")
 		locked_calls = []
 		real_get_value = frappe.db.get_value
 
 		def spy_get_value(*args, **kwargs):
+			"""Record `frappe.db.get_value` calls made with `for_update=True`."""
 			if kwargs.get("for_update"):
 				locked_calls.append(args[:2])
 			return real_get_value(*args, **kwargs)
@@ -145,6 +157,7 @@ class TestTransportAllocation(CampusTestCase):
 		):
 			allocate_seat(student.name, self.route.name, "Chromepet")
 
+		self.assertIn(("Student", student.name), locked_calls)
 		self.assertIn(("Transport Route", self.route.name), locked_calls)
 		self.assertTrue(
 			any(
@@ -154,6 +167,7 @@ class TestTransportAllocation(CampusTestCase):
 		)
 
 	def test_allocate_seat_enforces_capacity_stop_validity_duplicate_student_and_shared_service(self):
+		"""Verify `allocate_seat` checks shared service agreement, stop membership, duplicate rider, and seat capacity."""
 		s1 = self.make_student("RiderOne")
 		s2 = self.make_student("RiderTwo")
 		s3 = self.make_student("RiderThree")
@@ -181,6 +195,7 @@ class TestTransportAllocation(CampusTestCase):
 			allocate_seat(s3.name, self.route.name, "Tambaram")
 
 	def test_student_cannot_hold_hostel_and_transport_simultaneously(self):
+		"""Verify a student cannot simultaneously hold an active Hostel Bed Allocation and Transport Allocation."""
 		frappe.get_doc(
 			{
 				"doctype": "Shared Service Agreement",
@@ -248,6 +263,7 @@ class TestTransportAllocation(CampusTestCase):
 		self.assertEqual(switched_to_hostel.status, ACTIVE)
 
 	def test_side_exit_transitions_set_end_date_and_free_transport_seat(self):
+		"""Verify side-exit lifecycle transitions vacate transport allocations and free route seats."""
 		exit_date = add_days(today(), 7)
 		for idx, exit_status in enumerate(
 			(rules.ON_BREAK, rules.WITHDRAWN, rules.DISCONTINUED, rules.CANCELLED)

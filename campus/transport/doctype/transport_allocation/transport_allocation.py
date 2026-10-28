@@ -8,6 +8,7 @@ from frappe.utils import cint, flt, getdate, today
 from campus.campus_finance.fee_heads import TRANSPORT
 from campus.campus_finance.invoices import check_fee_invoice, raise_fee_invoice
 from campus.campus_platform.api import served_companies
+from campus.campus_platform.company_scope import check_company_permitted
 from campus.student_services import lifecycle_rules as rules
 from campus.student_services.onboarding import mark_item_done
 
@@ -17,37 +18,53 @@ SIDE_EXIT_STATUSES = (rules.ON_BREAK, rules.WITHDRAWN, rules.DISCONTINUED, rules
 
 
 class TransportAllocation(Document):
+	"""Row-locked bus seat allocation for a student on a transport route and stop."""
+
 	@property
 	def end_date(self):
+		"""Alias for `to_date` used by lifecycle teardown callers."""
 		return self.to_date
 
 	@end_date.setter
 	def end_date(self, value):
+		"""Set `to_date` when `end_date` is assigned."""
 		self.to_date = value
 
 	def validate(self):
+		"""Lock the student and route rows, derive company and stop fee, and validate eligibility and capacity."""
 		self.status = self.status or ACTIVE
 		self.from_date = self.from_date or today()
 		if self.to_date and getdate(self.to_date) < getdate(self.from_date):
 			frappe.throw(_("To Date cannot be before From Date"))
 
+		student_status = frappe.db.get_value(
+			"Student", self.student, "oc_academic_status", for_update=True
+		)
 		route_row = lock_route(self.route)
 		self.company = route_row.company
-		self.fee_amount = resolve_stop_fee(
-			self.route, self.stop, getattr(self, "_fee_amount", None) or self.fee_amount
-		)
+		check_company_permitted(self.company)
+		if self.is_new() and not getattr(self.flags, "skip_fee_invoice", False):
+			self.sales_invoice = None
+		if self.is_new() or self.has_value_changed("stop"):
+			self.fee_amount = resolve_stop_fee(
+				self.route, self.stop, getattr(self, "_fee_amount", None) or self.fee_amount
+			)
 
 		if self.status == ACTIVE:
-			self._validate_active_allocation(route_row)
+			self._validate_active_allocation(route_row, student_status=student_status)
 		elif self.status == VACATED and not self.to_date:
 			self.to_date = today()
 
-	def _validate_active_allocation(self, route_row):
+	def _validate_active_allocation(self, route_row, student_status=None):
+		"""Verify the route is active, has capacity, serves the student's college, and the student is eligible."""
 		if route_row.disabled:
 			frappe.throw(_("Transport Route {0} is disabled").format(self.route))
 
 		validate_allotment(self.route, self.student, route_company=route_row.company)
-		student_status = frappe.db.get_value("Student", self.student, "oc_academic_status")
+		if student_status is None:
+			student_status = frappe.db.get_value(
+				"Student", self.student, "oc_academic_status", for_update=True
+			)
 		if student_status in SIDE_EXIT_STATUSES:
 			frappe.throw(
 				_("Student {0} is {1} and cannot be allocated a transport seat").format(
@@ -67,23 +84,26 @@ class TransportAllocation(Document):
 			check_fee_invoice(self.student, TRANSPORT, self.company)
 
 	def after_insert(self):
+		"""Refresh route occupancy, mark the student as a transport user, tick onboarding, and raise the invoice."""
 		if self.status != ACTIVE:
 			return
 		refresh_route_occupancy(self.route)
 		frappe.db.set_value("Student", self.student, "oc_transport_user", 1, update_modified=False)
 		mark_item_done(self.student, "BUS-PASS")
 		mark_item_done(self.student, "TRANSPORT")
-		if not self.sales_invoice and not getattr(self.flags, "skip_fee_invoice", False):
+		if not getattr(self.flags, "skip_fee_invoice", False):
 			invoice = raise_transport_invoice(self)
 			self.db_set("sales_invoice", invoice.name, update_modified=False)
 
 	def on_update(self):
+		"""Synchronise route occupancy and the student's transport user flag when status changes."""
 		refresh_route_occupancy(self.route)
 		refresh_student_transport_flag(self.student)
 
 	def on_trash(self):
+		"""Refresh route occupancy and the student's transport flag excluding the deleted allocation."""
 		refresh_route_occupancy(self.route, exclude_name=self.name)
-		refresh_student_transport_flag(self.student)
+		refresh_student_transport_flag(self.student, exclude_name=self.name)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -254,6 +274,7 @@ def check_student_unallocated(student, exclude_name=None):
 
 
 def refresh_route_occupancy(route, exclude_name=None):
+	"""Recompute and store `occupied_seats` on `Transport Route` from active allocations."""
 	if not route or not frappe.db.exists("Transport Route", route):
 		return
 	alloc = frappe.qb.DocType("Transport Allocation")
@@ -268,12 +289,19 @@ def refresh_route_occupancy(route, exclude_name=None):
 	frappe.db.set_value("Transport Route", route, "occupied_seats", active_count, update_modified=False)
 
 
-def refresh_student_transport_flag(student):
+def refresh_student_transport_flag(student, exclude_name=None):
+	"""Update `Student.oc_transport_user` from remaining active allocations, optionally excluding one row."""
 	if not student or not frappe.db.exists("Student", student):
 		return
-	has_active = bool(
-		frappe.db.exists("Transport Allocation", {"student": student, "status": ACTIVE})
+	alloc = frappe.qb.DocType("Transport Allocation")
+	query = (
+		frappe.qb.from_(alloc)
+		.select(alloc.name)
+		.where((alloc.student == student) & (alloc.status == ACTIVE))
 	)
+	if exclude_name:
+		query = query.where(alloc.name != exclude_name)
+	has_active = bool(query.run(as_dict=True))
 	frappe.db.set_value("Student", student, "oc_transport_user", int(has_active), update_modified=False)
 
 
