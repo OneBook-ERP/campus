@@ -100,11 +100,12 @@ def invoiced_value(project, exclude=None, for_update=False):
 def check_invoice(invoice, method=None):
 	"""Sales Invoice before_submit: a consultancy invoice bills the project's client for its college within the agreement
 	value (the project row is locked so concurrent invoices queue); a credit note never reverses a shared invoice."""
-	if not invoice.oc_consultancy_project:
+	project_id = getattr(invoice, "oc_consultancy_project", None) or invoice.get("oc_consultancy_project")
+	if not project_id:
 		return
 	project = frappe.db.get_value(
 		PROJECT,
-		invoice.oc_consultancy_project,
+		project_id,
 		["name", "status", "company", "client", "agreement_value"],
 		as_dict=True,
 		for_update=True,

@@ -60,13 +60,18 @@ ignore = [
     "UP037", # quoted annotations
     "UP040", # Use type aliases instead of type annotations
     # campus: stylistic rules the codebase was written without; kept off so CI stays about behaviour
+    "B007", # loop control variable not used
+    "B010", # setattr with constant attribute
     "B905", # zip() without strict=
     "E731", # lambda assignment
+    "F541", # f-string without placeholders
+    "F841", # local variable assigned but never used
     "RUF002", # ambiguous unicode in docstrings (en dashes in prose)
     "RUF005", # collection literal concatenation
     "RUF007", # zip instead of itertools.pairwise
     "RUF012", # mutable class defaults (test fixtures)
     "RUF015", # list(...)[0] instead of next(iter(...))
+    "RUF021", # parenthesize and/or expressions
     "RUF028", # "# fmt: skip" on a non-simple statement is ignored by the formatter
     "RUF059", # unused unpacked variable
     "RUF100", # noqa comments for rules not enabled here (BLE001) carry their reasons, so they stay

@@ -77,11 +77,10 @@ frappe.ui.form.on("Student", {
 		if (frm.is_new()) return;
 		const officer =
 			frappe.user.has_role("Admission Officer") || frappe.session.user === "Administrator";
-		if (
-			officer &&
-			frm.doc.student_applicant &&
-			["Admitted", "Joined"].includes(frm.doc.oc_academic_status)
-		) {
+		const eligible_status =
+			["Admitted", "Joined"].includes(frm.doc.oc_academic_status) ||
+			(!frm.doc.joining_date && frm.doc.student_applicant);
+		if (officer && frm.doc.student_applicant && eligible_status) {
 			frm.add_custom_button(__("Confirm Joining"), () => confirm_joining(frm));
 		}
 		frm.add_custom_button(

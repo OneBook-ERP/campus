@@ -12,6 +12,24 @@ frappe.ui.form.on("Student Applicant", {
 			frappe.user.has_role("Admission Officer") || frappe.session.user === "Administrator";
 		if (frm.is_new() || !allowed) return;
 		add_clearance_button(frm);
+		if (frm.doc.oc_eligibility_status === "Pending" || !frm.doc.oc_eligibility_status) {
+			frm.add_custom_button(__("Check Eligibility"), () => {
+				if (frm.is_dirty()) {
+					frappe.msgprint(__("Save the applicant before checking eligibility."));
+					return;
+				}
+				frappe.call({
+					method: "campus.admissions.api.evaluate_eligibility",
+					args: { applicant: frm.doc.name },
+					freeze: true,
+					callback(r) {
+						if (r.message) {
+							frm.reload_doc();
+						}
+					},
+				});
+			});
+		}
 		if (frm.doc.application_status !== "Approved") return;
 		frm.add_custom_button(__("Admit"), () =>
 			frappe.confirm(__("Admit {0}?", [frm.doc.name]), () =>

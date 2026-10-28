@@ -49,7 +49,12 @@ def seed_lifecycle_rules():
 		return
 	for from_status, to_status in lifecycle_rules.DEFAULT_TRANSITIONS:
 		frappe.get_doc(
-			{"doctype": "Lifecycle Transition Rule", "from_status": from_status, "to_status": to_status}
+			{
+				"doctype": "Lifecycle Transition Rule",
+				"from_status": from_status,
+				"to_status": to_status,
+				"enabled": 1,
+			}
 		).insert(ignore_permissions=True)
 
 

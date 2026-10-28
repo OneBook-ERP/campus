@@ -189,6 +189,7 @@ doc_events["Program Enrollment"]["validate"] = [
 ]
 
 doc_events["Student Applicant"]["validate"] += [
+	"campus.admissions.eligibility.validate_applicant",
 	"campus.admissions.allotment_import.set_allotment_key",
 	"campus.admissions.documents.validate_applicant",
 	"campus.admissions.duplicates.validate_applicant",

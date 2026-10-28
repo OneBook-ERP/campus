@@ -256,7 +256,10 @@ class TestAdmissionsIntegration(CampusTestCase):
 	# eligibility
 	def test_eligibility_stored_on_applicant(self):
 		ok = self.applicant(marks=(60, 60, 60))
-		self.assertEqual(evaluate_eligibility(ok.name), {"eligible": True, "reasons": []})
+		res = evaluate_eligibility(ok.name)
+		self.assertTrue(res["eligible"])
+		self.assertEqual(res["status"], "Eligible")
+		self.assertEqual(res["reasons"], [])
 		self.assertEqual(
 			frappe.db.get_value("Student Applicant", ok.name, "oc_eligibility_status"), "Eligible"
 		)

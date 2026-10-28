@@ -21,7 +21,8 @@ LINKS = {RESCHEDULED: "oc_rescheduled_to", MAKEUP: "oc_makeup_for"}
 def validate_session(doc, method=None):
 	"""Course Schedule validate: the state's link is set (to another session of the group) and the others cleared; a
 	change touching a marked session needs a new reason."""
-	doc.oc_session_state = doc.oc_session_state or SCHEDULED
+	session_state = getattr(doc, "oc_session_state", None) or doc.get("oc_session_state") or SCHEDULED
+	doc.oc_session_state = session_state
 	for state, fieldname in LINKS.items():
 		if doc.oc_session_state != state:
 			doc.set(fieldname, None)
@@ -34,7 +35,8 @@ def validate_session(doc, method=None):
 	touched = marked_sessions_touched(doc)
 	if not touched:
 		return
-	if not (doc.oc_state_reason or "").strip() or not doc.has_value_changed("oc_state_reason"):
+	state_reason = getattr(doc, "oc_state_reason", None) or doc.get("oc_state_reason")
+	if not (state_reason or "").strip() or not doc.has_value_changed("oc_state_reason"):
 		frappe.throw(
 			_("Attendance is marked for {0}: give the reason for changing the state of {1}.").format(
 				", ".join(touched), doc.name or _("this session")

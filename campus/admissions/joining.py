@@ -306,15 +306,16 @@ def needs_joining(doc):
 		return False
 	if not doc.program or not frappe.db.get_value("Program", doc.program, "oc_company"):
 		return False
-	student = frappe.db.get_value(
-		"Student", doc.student, ["oc_academic_status", "student_applicant"], as_dict=True
-	)
+	fields = ["student_applicant"]
+	if frappe.db.has_column("Student", "oc_academic_status"):
+		fields.append("oc_academic_status")
+	student = frappe.db.get_value("Student", doc.student, fields, as_dict=True)
 	if not student:
 		return False
-	if student.oc_academic_status == ADMITTED:
+	if student.get("oc_academic_status") == ADMITTED:
 		return True
 	if (
-		student.oc_academic_status != CANCELLED
+		student.get("oc_academic_status") != CANCELLED
 		and doc.amended_from
 		and frappe.db.get_value("Program Enrollment", doc.amended_from, "oc_joining_key")
 	):
