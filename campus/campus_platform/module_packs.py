@@ -27,6 +27,7 @@ PACK_WORKSPACES = {
 	"COE": ["Examinations"],
 	"GOVERNANCE": ["Academic Governance"],
 	"HOSTEL": ["Hostel"],
+	"TRANSPORT": ["Transport"],
 	"LABS": ["Labs"],
 	"PLACEMENT": ["Placement"],
 	"IQAC": ["IQAC"],
@@ -47,6 +48,7 @@ def seed_module_packs():
 				"workspaces": [{"workspace": w} for w in PACK_WORKSPACES.get(code, [])],
 			}
 		).insert(ignore_permissions=True)
+	link_pack_workspaces()
 
 
 def link_pack_workspaces():

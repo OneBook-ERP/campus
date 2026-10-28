@@ -17,7 +17,7 @@ from campus.tests.utils import CampusTestCase
 
 AREAS = [
 	"Student Services", "Admissions", "Academics", "Examinations", "Fees and Finance", "IQAC", "Research", "Hostel",
-	"Labs", "Placement", "Faculty", "Academic Governance", "Communication", "Approvals", "Administration",
+	"Transport", "Labs", "Placement", "Faculty", "Academic Governance", "Communication", "Approvals", "Administration",
 ]  # fmt: skip
 COLLEGE = "Campus Nav Test College"  # autonomous: the COE pack (Examinations) is open to it
 COE_OFF_COLLEGE = "Campus Nav COE Off College"  # autonomous too, but switches the COE pack off
@@ -25,6 +25,7 @@ RESEARCH_USER = "campus-nav-research@example.com"
 AREA_PACK_USER = "campus-nav-area-packs@example.com"
 AREA_PACKS = {
 	"HOSTEL": ("Hostel", "Warden"),
+	"TRANSPORT": ("Transport", "Warden"),
 	"LABS": ("Labs", "Lab In-charge"),
 	"PLACEMENT": ("Placement", "Placement Officer"),
 }

@@ -11,6 +11,10 @@ class HostelBed(Document):
 	def validate(self):
 		if not self.room or not frappe.db.exists("Hostel Room", self.room):
 			frappe.throw(_("A bed needs a room"))
+		if not self.status:
+			self.status = "Available"
+		if not self.is_active and self.status == "Occupied":
+			frappe.throw(_("Cannot deactivate an occupied bed"))
 
 	def on_update(self):
 		refresh_capacity(self.room)
