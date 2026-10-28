@@ -132,19 +132,24 @@ def ensure_outcomes(ctx, programme, regulation, curriculum):
 		(row.course, row.co_code)
 		for row in frappe.get_all("Course Outcome", {"curriculum": curriculum}, ["course", "co_code"])
 	}
-	for semester in OUTCOME_SEMESTERS:
-		for course, *_rest in semester_courses(programme["abbr"], semester):
-			for code, bloom_level, template in CO_TEMPLATES:
-				if (course, code) in existing_cos:
-					continue
-				frappe.get_doc(
-					{
-						"doctype": "Course Outcome",
-						"course": course,
-						"curriculum": curriculum,
-						"co_code": code,
-						"bloom_level": bloom_level,
-						"statement": template.format(course=course),
-					}
-				).insert(ignore_permissions=True)
-				ctx.out.created["Course Outcome"] += 1
+	courses = frappe.get_all(
+		"Curriculum Course",
+		{"parent": curriculum, "parenttype": "Curriculum", "semester": ["in", OUTCOME_SEMESTERS]},
+		pluck="course",
+		order_by="idx",
+	)
+	for course in courses:
+		for code, bloom_level, template in CO_TEMPLATES:
+			if (course, code) in existing_cos:
+				continue
+			frappe.get_doc(
+				{
+					"doctype": "Course Outcome",
+					"course": course,
+					"curriculum": curriculum,
+					"co_code": code,
+					"bloom_level": bloom_level,
+					"statement": template.format(course=course),
+				}
+			).insert(ignore_permissions=True)
+			ctx.out.created["Course Outcome"] += 1

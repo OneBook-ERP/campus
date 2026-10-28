@@ -222,6 +222,14 @@ class TestDemoShape(IntegrationTestCase):
 
 	def test_the_curriculum_step_seeds_outcomes_once_and_fills_a_matrix_grid(self):
 		"""The curriculum step seeds 12 NBA POs, 2 PSOs per programme, and COs for the demo courses idempotently."""
+		programmes = [p["name"] for p in PROFILE["programmes"]]
+		curricula = frappe.get_all("Curriculum", {"company": COLLEGE}, pluck="name")
+		for matrix_name in frappe.get_all("CO-PO Matrix", {"company": COLLEGE}, pluck="name"):
+			frappe.delete_doc("CO-PO Matrix", matrix_name, force=True)
+		if curricula:
+			frappe.db.delete("Course Outcome", {"curriculum": ["in", curricula]})
+		frappe.db.delete("Program Specific Outcome", {"program": ["in", programmes]})
+		frappe.db.delete("Program Outcome", {"program": ["in", programmes]})
 		first_ctx = Context(PROFILE, 2026)
 		run_steps(first_ctx, ["curriculum"])
 		self.assertEqual(first_ctx.out.as_dict()["created"]["Program Outcome"], 72)
