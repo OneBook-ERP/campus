@@ -271,6 +271,15 @@ class TestNavigation(CampusTestCase):
 				shortcuts,
 			)
 
+	def test_workspace_doctype_slug_collisions_use_explicit_list_view(self):
+		self.assertIn("/assets/campus/js/navigation.js", frappe.get_hooks("app_include_js", app_name="campus"))
+		collisions = {w.name for w in campus_workspaces() if frappe.db.exists("DocType", w.name)}
+		self.assertIn("Hostel", collisions)
+		for workspace in campus_workspaces():
+			for shortcut in workspace.shortcuts:
+				if shortcut.type == "DocType" and shortcut.link_to == workspace.name:
+					self.assertEqual(shortcut.doc_view, "List", f"{workspace.name}: {shortcut.label}")
+
 	def test_module_packs_hide_their_area(self):
 		for code, area in (
 			("COE", "Examinations"), ("GOVERNANCE", "Academic Governance"), ("IQAC", "IQAC"), ("RESEARCH", "Research"),
