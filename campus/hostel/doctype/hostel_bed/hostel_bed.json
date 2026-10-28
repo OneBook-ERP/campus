@@ -7,6 +7,8 @@
   "room",
   "bed_no",
   "is_active",
+  "status",
+  "occupied_by",
   "hostel",
   "company"
  ],
@@ -35,6 +37,25 @@
    "label": "Active",
    "default": "1",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Available\nOccupied",
+   "default": "Available",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "occupied_by",
+   "fieldtype": "Link",
+   "label": "Occupied By",
+   "options": "Student",
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "hostel",

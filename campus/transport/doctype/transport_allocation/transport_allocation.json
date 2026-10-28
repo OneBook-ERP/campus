@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "autoname": "format:TBA-{####}",
+ "creation": "2026-10-28 12:28:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "student",
+  "route",
+  "stop",
+  "academic_year",
+  "column_break_1",
+  "status",
+  "from_date",
+  "to_date",
+  "fee_amount",
+  "sales_invoice",
+  "company"
+ ],
+ "fields": [
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "route",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transport Route",
+   "options": "Transport Route",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "stop",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Pickup / Drop Stop",
+   "reqd": 1
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Academic Year",
+   "options": "Academic Year"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nVacated",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "From Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "To Date"
+  },
+  {
+   "fieldname": "fee_amount",
+   "fieldtype": "Currency",
+   "label": "Fee Amount",
+   "non_negative": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "no_copy": 1,
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "route.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-10-28 12:28:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Allocation",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Warden",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

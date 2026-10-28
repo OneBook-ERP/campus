@@ -114,6 +114,21 @@
   },
   {
    "added": 0,
+   "child": 1,
+   "collapsible": 1,
+   "hidden": 0,
+   "indent": 0,
+   "is_default_module": 0,
+   "keep_closed": 0,
+   "label": "Hostel Bed Allocation",
+   "link_to": "Hostel Bed Allocation",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "added": 0,
    "child": 0,
    "collapsible": 1,
    "hidden": 0,
@@ -204,7 +219,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-23 05:35:09.588808",
+ "modified": "2026-10-28 12:38:00.000000",
  "modified_by": "Administrator",
  "module": "Hostel",
  "name": "Hostel",

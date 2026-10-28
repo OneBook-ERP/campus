@@ -1,0 +1,125 @@
+{
+ "app": "campus",
+ "charts": [],
+ "content": "[{\"id\": \"hd0001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Transport</b></span>\", \"col\": 12}}, {\"id\": \"sc0001\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Transport Allocation\", \"col\": 3}}, {\"id\": \"sc0002\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Transport Route\", \"col\": 3}}, {\"id\": \"sc0003\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"No Dues Sign-off\", \"col\": 3}}, {\"id\": \"sc0004\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Shared Service Agreement\", \"col\": 3}}, {\"id\": \"sp0007\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"cd0007\", \"type\": \"card\", \"data\": {\"card_name\": \"Routes & Seats\", \"col\": 4}}, {\"id\": \"cd0009\", \"type\": \"card\", \"data\": {\"card_name\": \"Clearance\", \"col\": 4}}, {\"id\": \"cd0008\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
+ "creation": "2026-10-28 12:38:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "bus",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Transport",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Routes & Seats",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Allocation",
+   "link_count": 0,
+   "link_to": "Transport Allocation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Clearance",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "No Dues Sign-off",
+   "link_count": 0,
+   "link_to": "No Dues Clearance",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Route",
+   "link_count": 0,
+   "link_to": "Transport Route",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-28 12:38:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Warden"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 47.5,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Transport Allocation",
+   "link_to": "Transport Allocation",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Transport Route",
+   "link_to": "Transport Route",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "No Dues Sign-off",
+   "link_to": "No Dues Clearance",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Shared Service Agreement",
+   "link_to": "Shared Service Agreement",
+   "type": "DocType"
+  }
+ ]
+}

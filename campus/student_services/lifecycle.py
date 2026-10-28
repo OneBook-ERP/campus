@@ -17,12 +17,15 @@ import frappe
 from frappe import _
 from frappe.utils import getdate, today
 
+from campus.hostel.api import vacate_for_student
 from campus.student_services import lifecycle_rules as rules
+from campus.transport.api import vacate_seat_for_student
 
 LOG, RULE, FIELD = "Lifecycle Transition", "Lifecycle Transition Rule", "oc_academic_status"
 DETAINED = "oc_detained"  # progression's detention flag (not a lifecycle status)
 TRANSITION, INITIAL, MIGRATED, REVERSAL = "Transition", "Initial", "Migrated", "Reversal"
 NEW_RECORD = "New Record"  # the rule name part for a blank From Status
+SIDE_EXIT_STATUSES = (rules.ON_BREAK, rules.WITHDRAWN, rules.DISCONTINUED, rules.CANCELLED)
 
 
 def rule_name(from_status, to_status):
@@ -216,11 +219,21 @@ def write(
 	program_enrollment,
 	reverses=None,
 ):
+	"""Update the student's lifecycle status, log the transition, and run side-exit teardown when applicable."""
 	frappe.db.set_value("Student", student, FIELD, to_status)
-	return insert_log(
+	log = insert_log(
 		student, current.company, current.status, to_status, effective, kind, reason, source, approved_by,
 		program_enrollment or latest_enrollment(student), reverses,
-	).name  # fmt: skip
+	)  # fmt: skip
+	if to_status in SIDE_EXIT_STATUSES:
+		on_side_exit(student, to_status, effective)
+	return log.name
+
+
+def on_side_exit(student, to_status=None, effective_date=None):
+	"""End active hostel and transport allocations when a student moves to On Break, Withdrawn, Discontinued, or Cancelled."""
+	vacate_for_student(student, end_date=effective_date)
+	vacate_seat_for_student(student, end_date=effective_date)
 
 
 def insert_log(

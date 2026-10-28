@@ -376,11 +376,11 @@ DocType,Grant Receipt,,Accounts User,0,1,1,1,0,1,1,1,1,0,0,1,1,0,0,0,1,0
 DocType,Grant Receipt,,Principal,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0
 DocType,Grant Receipt,,System Manager,0,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,1,0
 DocType,Hall Ticket,,Academics User,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
-DocType,Hall Ticket,,COE,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Hall Ticket,,COE,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Hall Ticket,,Dean Academics,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Hall Ticket,,Guardian,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1
 DocType,Hall Ticket,,Student,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1
-DocType,Hall Ticket,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Hall Ticket,,System Manager,0,1,0,0,1,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Honorarium Claim,,Academics User,0,1,1,1,0,1,0,0,1,0,0,0,1,0,0,0,1,0
 DocType,Honorarium Claim,,Accounts Manager,0,1,1,1,0,1,1,1,1,0,0,1,1,0,0,0,1,0
 DocType,Honorarium Claim,,Accounts User,0,1,1,1,0,1,0,0,1,0,0,0,1,0,0,0,1,0
@@ -391,6 +391,9 @@ DocType,Hostel,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0
 DocType,Hostel,,Warden,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Hostel Bed,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0
 DocType,Hostel Bed,,Warden,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Hostel Bed Allocation,,Accounts Manager,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Hostel Bed Allocation,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0
+DocType,Hostel Bed Allocation,,Warden,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Hostel Block,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0
 DocType,Hostel Block,,Warden,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,Hostel Fee Rate,,Accounts Manager,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
@@ -733,6 +736,12 @@ DocType,Timetable Slot Template,,Dean Academics,0,1,1,1,0,0,0,0,1,0,0,0,1,0,0,0,
 DocType,Timetable Slot Template,,HOD,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0
 DocType,Timetable Slot Template,,Principal,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0
 DocType,Timetable Slot Template,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Transport Allocation,,Accounts Manager,0,1,1,1,0,0,0,0,1,0,0,1,1,0,1,0,0,0
+DocType,Transport Allocation,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0
+DocType,Transport Allocation,,Warden,0,1,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0
+DocType,Transport Route,,Accounts Manager,0,1,1,1,0,0,0,0,1,0,0,1,1,1,1,0,0,0
+DocType,Transport Route,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,1,1,1,0,0,0
+DocType,Transport Route,,Warden,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0
 DocType,UAT Feedback,,System Manager,0,1,1,1,1,0,0,0,1,0,0,1,0,0,0,0,0,0
 DocType,UAT Feedback,,System Manager,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 DocType,UAT Feedback,,UAT Coordinator,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0

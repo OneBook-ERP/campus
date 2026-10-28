@@ -17,7 +17,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Rooms & Beds",
-   "link_count": 5,
+   "link_count": 6,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -72,6 +72,17 @@
    "label": "Hostel Bed",
    "link_count": 0,
    "link_to": "Hostel Bed",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hostel Bed Allocation",
+   "link_count": 0,
+   "link_to": "Hostel Bed Allocation",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -137,7 +148,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-23 05:35:09.588808",
+ "modified": "2026-10-28 12:38:00.000000",
  "modified_by": "Administrator",
  "module": "Hostel",
  "name": "Hostel",

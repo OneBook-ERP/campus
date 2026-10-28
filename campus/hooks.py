@@ -551,6 +551,7 @@ doc_events["WhatsApp Message"] = {"on_update": "campus.campus_messaging.delivery
 app_include_js = [
 	"/assets/campus/js/approvals.js",
 	"/assets/campus/js/attach_evidence.js",
+	"/assets/campus/js/navigation.js",
 ]  # P3-T04 Attach as Evidence
 
 doctype_js = {
