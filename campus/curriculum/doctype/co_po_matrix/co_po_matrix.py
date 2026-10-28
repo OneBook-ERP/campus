@@ -49,26 +49,51 @@ class COPOMatrix(ApprovableDocument, Document):
 			)  # fmt: skip
 
 	def set_scope(self):
+		"""Populate program, regulation, department, and company from the curriculum and course."""
 		curriculum = frappe.db.get_value(
 			"Curriculum", self.curriculum, ["program", "regulation"], as_dict=True
 		)
 		self.program, self.regulation = curriculum.program, curriculum.regulation
-		self.department = frappe.db.get_value("Course", self.course, "department")
+		course_dept = frappe.db.get_value("Course", self.course, "department")
+		self.department = course_dept or frappe.db.get_value("Program", self.program, "department")
 		self.company = frappe.db.get_value("Program", self.program, "oc_company")
+
+	def require_outcomes(self):
+		"""Return (course_outcomes, programme_outcomes) or raise when either master is empty."""
+		cos = outcomes.course_outcomes(self.course, self.curriculum)
+		if not cos:
+			frappe.throw(
+				_("Define the course outcomes of {0} in {1} first.").format(
+					frappe.bold(self.course), frappe.bold(self.curriculum)
+				)
+			)
+		targets = outcomes.programme_outcomes(self.program, self.regulation)
+		if not targets:
+			frappe.throw(
+				_("Define the programme outcomes (PO / PSO) of {0} under {1} first.").format(
+					frappe.bold(self.program), frappe.bold(self.regulation)
+				)
+			)
+		return cos, targets
 
 	@frappe.whitelist()
 	def fill_grid(self):
 		"""Add a 0 cell for every CO x PO / PSO pair not yet in the grid (a CO or PSO added later)."""
+		if not (self.program and self.regulation):
+			self.set_scope()
+		cos, targets = self.require_outcomes()
 		present = {(row.course_outcome, row.outcome) for row in self.correlations}
-		for co in outcomes.course_outcomes(self.course, self.curriculum):
-			for outcome in outcomes.programme_outcomes(self.program, self.regulation):
+		for co in cos:
+			for outcome in targets:
 				if (co.name, outcome.name) not in present:
 					self.append(
 						"correlations",
 						{
 							"course_outcome": co.name,
+							"co_code": co.co_code,
 							"outcome_type": outcome.doctype,
 							"outcome": outcome.name,
+							"outcome_code": outcome.code,
 							"correlation": 0,
 						},
 					)
@@ -86,10 +111,10 @@ class COPOMatrix(ApprovableDocument, Document):
 			)
 
 	def check_cells(self):
-		cos = {co.name: co.co_code for co in outcomes.course_outcomes(self.course, self.curriculum)}
-		targets = {
-			(o.doctype, o.name): o.code for o in outcomes.programme_outcomes(self.program, self.regulation)
-		}
+		"""Verify that every correlation row references valid, unique outcomes of this curriculum and 0-3 values."""
+		cos_list, targets_list = self.require_outcomes()
+		cos = {co.name: co.co_code for co in cos_list}
+		targets = {(o.doctype, o.name): o.code for o in targets_list}
 		seen = set()
 		for row in self.correlations:
 			if row.course_outcome not in cos:
@@ -123,13 +148,8 @@ class COPOMatrix(ApprovableDocument, Document):
 			row.co_code, row.outcome_code = cos[row.course_outcome], targets[(row.outcome_type, row.outcome)]
 
 	def check_every_co_mapped(self):
-		cos = outcomes.course_outcomes(self.course, self.curriculum)
-		if not cos:
-			frappe.throw(
-				_("Define the course outcomes of {0} in {1} first.").format(
-					frappe.bold(self.course), frappe.bold(self.curriculum)
-				)
-			)
+		"""Refuse approval or submission when any course outcome has no non-zero correlation."""
+		cos, _targets = self.require_outcomes()
 		mapped = {row.course_outcome for row in self.correlations if row.correlation}
 		unmapped = [co.co_code for co in cos if co.name not in mapped]
 		if unmapped:
