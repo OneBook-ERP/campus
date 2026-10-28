@@ -557,6 +557,7 @@ doctype_js = {
 	"Student Applicant": "public/js/student_applicant.js",
 	"Student": "public/js/student.js",
 	"Student Result": "public/js/student_result.js",
+	"Assessment Result": "public/js/assessment_result.js",
 }
 
 doctype_js["Lead"] = "public/js/lead_convert.js"  # M04-01 Convert to Applicant button

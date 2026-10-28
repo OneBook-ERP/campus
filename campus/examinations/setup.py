@@ -43,6 +43,45 @@ def setup_examinations():
 	seed_outcome_template()
 	seed_certificate_types()
 	setup_affiliation()
+	setup_assessment_result_layout()
+
+
+def setup_assessment_result_layout():
+	"""Arrange Assessment Result fields so Row 1 is Assessment Plan & Program, Row 2 is Student Group & Student."""
+	import json
+
+	field_order = [
+		"assessment_plan",
+		"student_group",
+		"course",
+		"academic_year",
+		"academic_term",
+		"column_break_3",
+		"program",
+		"student",
+		"student_name",
+		"assessment_group",
+		"grading_scale",
+		"section_break_5",
+		"details",
+		"section_break_8",
+		"maximum_score",
+		"column_break_11",
+		"total_score",
+		"grade",
+		"section_break_13",
+		"comment",
+		"amended_from",
+	]
+	frappe.make_property_setter(
+		{
+			"doctype": "Assessment Result",
+			"doctype_or_field": "DocType",
+			"property": "field_order",
+			"value": json.dumps(field_order),
+			"property_type": "Data",
+		}
+	)
 
 
 def open_decision_to_approver():

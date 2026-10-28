@@ -280,3 +280,65 @@ def next_payroll_date(employee, company, posting_date):
 	return remuneration_rules.next_payroll_date(
 		posting_date, remuneration_payment.last_processed_slip_end(employee, company)
 	)
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_students_for_assessment_result(
+	doctype: str,
+	txt: str,
+	searchfield: str,
+	start: int,
+	page_len: int,
+	filters: dict | None = None,
+):
+	"""Returns students belonging to the student_group or enrolled in the program for Assessment Result."""
+	frappe.has_permission("Assessment Result", "read", throw=True)
+	filters = filters or {}
+	student_group = filters.get("student_group")
+	program = filters.get("program")
+
+	if not student_group and not program:
+		return []
+
+	Student = frappe.qb.DocType("Student")
+
+	if student_group:
+		group_company = frappe.db.get_value("Student Group", student_group, "oc_company")
+		StudentGroupStudent = frappe.qb.DocType("Student Group Student")
+		query = (
+			frappe.qb.from_(Student)
+			.inner_join(StudentGroupStudent)
+			.on(StudentGroupStudent.student == Student.name)
+			.select(Student.name, Student.student_name)
+			.where(
+				(StudentGroupStudent.parent == student_group)
+				& (StudentGroupStudent.active == 1)
+				& (Student.enabled == 1)
+			)
+		)
+		if group_company:
+			query = query.where(Student.oc_company == group_company)
+	else:
+		program_company = frappe.db.get_value("Program", program, "oc_company")
+		ProgramEnrollment = frappe.qb.DocType("Program Enrollment")
+		query = (
+			frappe.qb.from_(Student)
+			.inner_join(ProgramEnrollment)
+			.on(ProgramEnrollment.student == Student.name)
+			.select(Student.name, Student.student_name)
+			.where(
+				(ProgramEnrollment.program == program)
+				& (ProgramEnrollment.docstatus != 2)
+				& (Student.enabled == 1)
+			)
+			.distinct()
+		)
+		if program_company:
+			query = query.where(Student.oc_company == program_company)
+
+	if txt:
+		query = query.where((Student.name.like(f"%{txt}%")) | (Student.student_name.like(f"%{txt}%")))
+
+	query = query.orderby(Student.student_name).orderby(Student.name).offset(start).limit(page_len)
+	return [list(row) for row in query.run()]
