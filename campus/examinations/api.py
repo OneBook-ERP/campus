@@ -284,7 +284,14 @@ def next_payroll_date(employee, company, posting_date):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_students_for_assessment_result(doctype, txt, searchfield, start, page_len, filters):
+def get_students_for_assessment_result(
+	doctype: str,
+	txt: str,
+	searchfield: str,
+	start: int,
+	page_len: int,
+	filters: dict | None = None,
+):
 	"""Returns students belonging to the student_group or enrolled in the program for Assessment Result."""
 	frappe.has_permission("Assessment Result", "read", throw=True)
 	filters = filters or {}
@@ -331,9 +338,7 @@ def get_students_for_assessment_result(doctype, txt, searchfield, start, page_le
 			query = query.where(Student.oc_company == program_company)
 
 	if txt:
-		query = query.where(
-			(Student.name.like(f"%{txt}%")) | (Student.student_name.like(f"%{txt}%"))
-		)
+		query = query.where((Student.name.like(f"%{txt}%")) | (Student.student_name.like(f"%{txt}%")))
 
 	query = query.orderby(Student.student_name).orderby(Student.name).offset(start).limit(page_len)
 	return [list(row) for row in query.run()]

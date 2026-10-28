@@ -72,8 +72,7 @@ def filter_pilot_links(bootinfo):
 	# Strip from desktop icons
 	if "desktop_icons" in bootinfo:
 		bootinfo["desktop_icons"] = [
-			i for i in bootinfo["desktop_icons"]
-			if i.get("link_to") not in DISALLOWED_PILOT_NAV_DOCTYPES
+			i for i in bootinfo["desktop_icons"] if i.get("link_to") not in DISALLOWED_PILOT_NAV_DOCTYPES
 		]
 
 	# Strip from workspace pages

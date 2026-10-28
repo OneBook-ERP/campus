@@ -143,6 +143,7 @@ class TestAssessmentResultStudentFilter(IntegrationTestCase):
 
 	def test_field_order_layout(self):
 		import json
+
 		meta = frappe.get_meta("Assessment Result")
 		field_order = json.loads(meta.field_order) if isinstance(meta.field_order, str) else meta.field_order
 		cb_idx = field_order.index("column_break_3")
