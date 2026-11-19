@@ -8,6 +8,7 @@ const CLEARABLE = ["Applied", "Approved", "Admitted"];
 
 frappe.ui.form.on("Student Applicant", {
 	refresh(frm) {
+		frm.remove_custom_button(__("Enroll"));
 		const allowed =
 			frappe.user.has_role("Admission Officer") || frappe.session.user === "Administrator";
 		if (frm.is_new() || !allowed) return;

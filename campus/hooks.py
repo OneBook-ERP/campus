@@ -425,7 +425,10 @@ extend_doctype_class = {
 	"Student Applicant": ["campus.admissions.aadhaar.AadhaarMixin"],
 	"Program Enrollment": ["campus.admissions.seat_matrix.EnrollmentSeatLockMixin"],
 }
-override_whitelisted_methods = {"frappe.client.get_password": "campus.admissions.aadhaar.get_password"}
+override_whitelisted_methods = {
+	"frappe.client.get_password": "campus.admissions.aadhaar.get_password",
+	"education.education.api.enroll_student": "campus.admissions.api.enroll_student",
+}
 # override_whitelisted_methods = {
 # 	"frappe.desk.doctype.event.event.get_events": "campus.event.get_events"
 # }
