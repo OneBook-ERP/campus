@@ -27,6 +27,7 @@ PACK_WORKSPACES = {
 	"COE": ["Examinations"],
 	"GOVERNANCE": ["Academic Governance"],
 	"HOSTEL": ["Hostel"],
+	"TRANSPORT": ["Transport"],
 	"LABS": ["Labs"],
 	"PLACEMENT": ["Placement"],
 	"IQAC": ["IQAC"],
@@ -35,6 +36,7 @@ PACK_WORKSPACES = {
 
 
 def seed_module_packs():
+	"""Seed missing Module Pack records from SEED_PACKS without overwriting existing ones."""
 	for code, (title, statuses) in SEED_PACKS.items():
 		if frappe.db.exists("Module Pack", code):
 			continue

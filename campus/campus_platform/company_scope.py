@@ -95,6 +95,16 @@ def permitted_companies(user):
 	return [p["doc"] for p in restricted] if restricted else None
 
 
+def check_company_permitted(company):
+	"""Reject a record whose Company the session user is not permitted to access."""
+	permitted = permitted_companies(frappe.session.user)
+	if permitted is not None and company not in permitted:
+		frappe.throw(
+			_("You are not permitted to create records for {0}.").format(company),
+			exc=frappe.PermissionError,
+		)
+
+
 def before_validate(doc, method=None):
 	"""Set the company from the parent link, falling back to the user's default company."""
 	company_field = COMPANY_FIELD.get(doc.doctype, "oc_company")

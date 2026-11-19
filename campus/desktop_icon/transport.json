@@ -1,0 +1,32 @@
+{
+ "app": "campus",
+ "bg_color": "gray",
+ "creation": "2026-10-28 12:38:00.000000",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "bus",
+ "icon_type": "Link",
+ "idx": 9,
+ "label": "Transport",
+ "link_to": "Transport",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-10-28 12:38:00.000000",
+ "modified_by": "Administrator",
+ "name": "Transport",
+ "owner": "Administrator",
+ "parent_icon": "OneBook Campus",
+ "restrict_removal": 0,
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Warden"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "standard": 1
+}

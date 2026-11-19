@@ -17,7 +17,7 @@ from campus.tests.utils import CampusTestCase
 
 AREAS = [
 	"Student Services", "Admissions", "Academics", "Examinations", "Fees and Finance", "IQAC", "Research", "Hostel",
-	"Labs", "Placement", "Faculty", "Academic Governance", "Communication", "Approvals", "Administration",
+	"Transport", "Labs", "Placement", "Faculty", "Academic Governance", "Communication", "Approvals", "Administration",
 ]  # fmt: skip
 COLLEGE = "Campus Nav Test College"  # autonomous: the COE pack (Examinations) is open to it
 COE_OFF_COLLEGE = "Campus Nav COE Off College"  # autonomous too, but switches the COE pack off
@@ -25,6 +25,7 @@ RESEARCH_USER = "campus-nav-research@example.com"
 AREA_PACK_USER = "campus-nav-area-packs@example.com"
 AREA_PACKS = {
 	"HOSTEL": ("Hostel", "Warden"),
+	"TRANSPORT": ("Transport", "Warden"),
 	"LABS": ("Labs", "Lab In-charge"),
 	"PLACEMENT": ("Placement", "Placement Officer"),
 }
@@ -270,6 +271,16 @@ class TestNavigation(CampusTestCase):
 				],
 				shortcuts,
 			)
+
+	def test_workspace_doctype_slug_collisions_use_explicit_list_view(self):
+		"""Verify workspace shortcuts whose target DocType matches the workspace name set doc_view='List'."""
+		self.assertIn("/assets/campus/js/navigation.js", frappe.get_hooks("app_include_js", app_name="campus"))
+		collisions = {w.name for w in campus_workspaces() if frappe.db.exists("DocType", w.name)}
+		self.assertIn("Hostel", collisions)
+		for workspace in campus_workspaces():
+			for shortcut in workspace.shortcuts:
+				if shortcut.type == "DocType" and shortcut.link_to == workspace.name:
+					self.assertEqual(shortcut.doc_view, "List", f"{workspace.name}: {shortcut.label}")
 
 	def test_module_packs_hide_their_area(self):
 		for code, area in (

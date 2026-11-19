@@ -56,3 +56,27 @@ def add_beds(room, count):
 			frappe.get_doc({"doctype": "Hostel Bed", "room": room, "bed_no": str(number)}).insert().name
 		)
 	return beds
+
+
+def allocate_bed(student, bed, academic_year, from_date=None, fee_amount=None):
+	"""Allocate `bed` to `student` for `academic_year` under a row lock and raise the Hostel Fee invoice."""
+	from campus.hostel.doctype.hostel_bed_allocation.hostel_bed_allocation import (
+		allocate_bed as _allocate_bed,
+	)
+
+	return _allocate_bed(
+		student=student,
+		bed=bed,
+		academic_year=academic_year,
+		from_date=from_date,
+		fee_amount=fee_amount,
+	)
+
+
+def vacate_for_student(student, end_date=None):
+	"""End all active Hostel Bed Allocations for `student` on `end_date` and free their beds."""
+	from campus.hostel.doctype.hostel_bed_allocation.hostel_bed_allocation import (
+		vacate_for_student as _vacate_for_student,
+	)
+
+	return _vacate_for_student(student=student, end_date=end_date)
